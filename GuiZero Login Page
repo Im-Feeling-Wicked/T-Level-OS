@@ -1,0 +1,132 @@
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo
+
+#############################
+### USING A BOX WITH A GRID
+#############################
+'''
+app = App(title='Login Screen', bg='#D9AA45', width=500, height=600)
+
+title_text = Text(app, text='Welcome to the Login Screen')
+title_text.size = 20
+
+spacer = Text(app, text='')
+
+login_box = Box(app, layout='grid')
+
+login_spacertxt1 = Text(login_box, text='          ', grid=[1,0])
+login_txt1 = Text(login_box, text='Enter Username', align='left', grid=[0,0], size=15)
+login_username = TextBox(login_box, hide_text=False, align='left', grid=[2,0], width=30)
+
+login_spacertxt2 = Text(login_box, text='          ', grid=[1,1])
+login_txt2 = Text(login_box, text='Enter Password', align='left', grid=[0,1], size=15)
+login_password = TextBox(login_box, hide_text=True, align='left', grid=[2,1], width=30)
+
+app.display()
+'''
+
+#############################
+### FRONT END GUI
+#############################
+app = App(title='Login', height=420, bg='#D9AA45')
+
+
+
+#---------------------
+# procedures
+#---------------------
+def open_signup():
+    print("OPENED SIGN UP PAGE")
+    app.hide()
+    sign_window.show()
+
+
+def open_login():
+    print("OPENED LOGIN PAGE")
+    sign_window.hide()
+    app.show()
+
+
+
+#---------------------
+# sign up window
+#---------------------
+sign_window = Window(app, title='Sign Up', bg='#D9AA45', height=420)
+sign_exit_box = Box(sign_window, width='fill', align='top')
+sign_exit_button = PushButton(sign_exit_box, text='Cancel', align='left', command=open_login)
+
+sign_title_box = Box(sign_window, width='fill')
+sign_toptxt1 = Text(sign_window, text='SIGN UP PAGE', size=20)
+
+sign_box = Box(sign_window, layout='grid')
+#sign_spacertxt1 = Text(sign_box, text='                    ', grid=[1,0])
+sign_txt1 = Text(sign_box, text='Enter Username', align='left', grid=[0,0], size=15)
+sign_txtbox1 = TextBox(sign_box, hide_text=False, align='left', grid=[2,0], width=30)
+
+sign_window.hide()
+
+
+
+#---------------------
+# title
+#---------------------
+login_spacertxt1 = Text(app, text='                    ')
+login_toptxt1 = Text(app, text= 'OUR BUSINESS TECHNOLOGIES', size=20)
+
+login_spacertxt2 = Text(app, text='                    ')
+login_toptxt2 = Text(app, text='To login please enter your details and press login', size=10)
+login_spacertxt3 = Text(app, text='                    ')
+
+
+
+#---------------------
+# login
+#---------------------
+login_box = Box(app, layout='grid')
+
+login_blanktxt1 = Text(login_box, text='          ', grid=[1,0])
+login_txt1 = Text(login_box, text='Enter Username', align='left', grid=[0,0], size=15)
+login_username = TextBox(login_box, hide_text=False, align='left', grid=[2,0], width=30)
+
+login_blanktxt2 = Text(login_box, text='          ', grid=[1,1])
+login_txt2 = Text(login_box, text='Enter Password', align='left', grid=[0,1], size=15)
+login_password = TextBox(login_box, hide_text=True, align='left', grid=[2,1], width=30)
+
+login_spacertxt4 = Text(app, text='                    ')
+login_button = PushButton(app, text='Login')
+login_spacertxt5 = Text(app, text='                    ')
+
+no_account_txt = Text(app, text="Don't have an account? Click here!")
+login_signup = PushButton(app, text='Signup', command=open_signup)
+
+login_spacertxt6 = Text(app,text='                    ')
+box = Box(app, border=1)
+box.bg = '#ddc48e'
+login_bottomtxt = Text(box, text='Forgot your password?', color='#1f8ced', size=12)
+
+
+
+#---------------------
+# fonts
+#---------------------
+login_toptxt1.font='times new roman'
+login_toptxt2.font='times new roman'
+login_box.font='times new roman'
+login_txt1.font='times new roman'
+login_username.font='times new roman'
+login_txt2.font='times new roman'
+login_password.font='times new roman'
+login_button.font='times new roman'
+login_signup.font='times new roman'
+
+no_account_txt.font='times new roman'
+
+sign_exit_button.font='times new roman'
+sign_toptxt1.font='times new roman'
+sign_txt1.font='times new roman'
+
+
+
+#---------------------
+# display
+#---------------------
+app.display()
