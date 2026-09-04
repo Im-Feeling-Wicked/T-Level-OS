@@ -1,4 +1,4 @@
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, info
 
 #############################
 ### USING A BOX WITH A GRID
@@ -46,6 +46,10 @@ def open_login():
     app.show()
 
 
+def signup_popup():
+    info('Sign Up Request Sent!', 'Your request to Sign Up is now pending and will be accepted over the next few weeks.', sign_window)
+
+
 
 #---------------------
 # sign up window
@@ -83,7 +87,7 @@ sign_spacertxt = Text(sign_window, text='                    ')
 sign_spacertxt2 = Text(sign_window, text='                    ')
 sign_txt6 = Text(sign_window, text='Finished entering your details? Click here to join us!')
 sign_spacertxt3 = Text(sign_window, text='                    ')
-sign_join_button = PushButton(sign_window, text='Join us!', height=1, width=8)
+sign_join_button = PushButton(sign_window, text='Join us!', height=1, width=8, command=signup_popup)
 
 sign_window.hide()
 
