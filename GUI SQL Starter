@@ -1,0 +1,193 @@
+################################################################################################
+#                   PROGRAM NAME: ???????                                                      #
+#                   FIRST CREATED: 25/06/2025                                                  #
+#                   PROGRAMMER: NICOLETTE D (ND)                                               #
+#                                                                                              #
+################################################################################################
+#                   CHANGE LOG:
+#                   +--------------------------------------------------------------------------+
+#                   | 25/06/2025    V1       DATABASE/LOGIN/SIGNUP CREATED             ND      |
+#                   | 06/07/2025    V2       DASHBOARD/???????? CREATED                ND      |
+#                   |                                                                          |
+#                   +--------------------------------------------------------------------------+
+#
+#
+from guizero import App, Window, PushButton, Text, Box, TextBox, Picture, info # Guizero imports to create front end
+
+import sqlite3
+#from sqlite3 import Error # sqlite import to create and manage database
+import os
+import os.path # OS import to edit system files
+
+# SQL creation and inserting test data
+sql = """
+CREATE TABLE "User" ( 
+"userID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+"user_name" TEXT,
+"user_firstname" TEXT,
+"user_surname" TEXT,
+"user_password" TEXT,
+"user_email" TEXT
+);
+CREATE TABLE "Review" (
+"reviewID"  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+"review_stars" TEXT,
+"review_text" TEXT,
+"userID"  INTEGER,
+FOREIGN KEY(userID) REFERENCES User(userID)
+);
+insert into User (user_name, user_firstname, user_surname, user_password, user_email) values ('UJoe', 'Strummer', 'Joe', 'pw1', 'Joe@gmail.com');
+insert into User (user_name, user_firstname, user_surname, user_password, user_email) values ('DivineGodTyler', 'Holcombe', 'Tyler', 'pw2', 'Tyler@gmail.com');
+insert into User (user_name, user_firstname, user_surname, user_password, user_email) values ('Oliwer123', 'Tworkowski', 'Oliwer', 'pw3', 'Oliwer@gmail.com');
+insert into User (user_name, user_firstname, user_surname, user_password, user_email) values ('Crobertson', 'Robertson-dock', 'Cassian', 'pw4', 'DonutW@gmail.com');
+insert into Review (reviewID, review_stars, review_text, userID) values ('1', '3', 'decent', '1');
+insert into Review (reviewID, review_stars, review_text, userID) values ('2', '4', 'good', '2');
+insert into Review (reviewID, review_stars, review_text, userID) values ('3', '5', 'amazing', '3');
+insert into Review (reviewID, review_stars, review_text, userID) values ('4', '5', 'ass', '4');
+"""
+#
+# global variables
+#
+database_file = 'myDB.db'
+#
+#
+if os.path.exists(database_file):
+   os.remove(database_file) # Removes database each time program starts for test purposes
+#
+conn = sqlite3.connect(database_file) 
+cursor = conn.cursor()
+cursor.executescript(sql)
+conn.commit() # Initialising SQL integration 
+#
+#
+def query_database(database, query, params=()):
+	# Function to query the database
+    with sqlite3.connect(database) as conn:
+        cur = conn.cursor()
+        cur.execute(query, params)
+        rows = cur.fetchall()
+    return rows
+#
+#
+def execute_sql(database, sql_statement, params=()):
+	# Function to execute SQL statements
+    with sqlite3.connect(database) as conn:
+        cur = conn.cursor()
+        cur.execute(sql_statement, params)
+        conn.commit()
+    return cur.lastrowid
+#
+#
+def login_user():
+    # Procedure to validate login inputs and  ???????
+    global user_LoggedIn # Global variable so that the UserID of the current user logged in can be used elsewhere as a FK
+    if login_username.value == "":
+        info("Error", "You must enter a valid username") # Checks if username input is empty (presence check)
+    elif login_pw.value == "":
+        info("Error", "You must enter a valid password") # 
+    else:
+        
+        query = "SELECT * from User WHERE user_name = ? AND user_password = ?"
+        rows = query_database(database_file, query, (login_username.value, login_pw.value)) # SQL query to retrieve username and password from database 
+        if len(rows) == 0:
+            info("Error", "Invalid Password Or Username") 
+        else:
+            user_LoggedIn = rows[0][0] # Set UserID to user_LoggedIn variable
+            #open_dashboard()
+	        # output welcome message
+            info("Success", f"Login successful! Welcome, {rows[0][3]} {rows[0][2]}!")
+#
+#
+def signup_create_account():
+    # Procedure to create an account
+    
+    if username.isalpha() == False:
+            info("Error", "Username cannot contain numbers or special characters") # Checks if username has no numbers or special characters (type check)
+    elif firstname.isalpha() == False:
+            info("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
+    # add more validation here  
+    #
+    #
+    else:
+            query = "INSERT INTO User (user_name, user_firstname, user_surname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
+            execute_sql(database_file, query, (username, firstname, surname, password, email)) # SQL query to insert new user into User
+            info("Success", "Account successfully created")
+#
+# https://lawsie.github.io/guizero/window/
+##
+##  navigation procedures            
+#
+def Open_Signup():
+    sign_window.show()
+#
+#   FRONT END IS DEFINED HERE
+#
+# Login window is start up window
+app = App( title="Login", height=400, bg="#c9e4ca")
+#
+login_spacetxt = Text(app, text="                                    ")
+login_spacetxt2 = Text(app, text="                                    ")
+login_toptxt = Text(app, text="OUR BUSINESS TECHNOLOGIES", size=20)
+login_toptxt2 = Text(app, text="To login please enter your details below and press login", size=10)
+login_spacetxt3 = Text(app, text="                                    ") 
+
+login_box = Box(app, layout="grid")
+login_blanktxt1 = Text(login_box , text="            ", grid=[1,0])
+login_txt1 = Text(login_box , text="Enter Username", align="left", grid=[0,0], size=15)
+login_username = TextBox(login_box , hide_text=False, align="left", grid=[2,0], width=30)
+
+login_blanktxt2 = Text(login_box, text="            ", grid=[1,1])
+login_txt2 = Text(login_box, text="Enter Password", align="left", grid=[0,1], size=15)
+login_pw = TextBox(login_box, hide_text=True, align="left", grid=[2,1], width=30)
+
+login_button = PushButton(app, text="Login", command=login_user)
+login_signup = PushButton(app, text="Signup", command=Open_Signup)
+
+login_bottom_text = Text(app, text="Forgot your password?", color="#7b7fff", size=12)
+
+#
+# Sign up window
+#
+sign_window = Window(app, title="Sign up", height=400, bg="#c9e4ca")
+#
+sign_exit_box = Box(sign_window, width="fill", align="top")
+sign_exit_button = PushButton(sign_exit_box, text="Cancel", align="left", command=None)
+sign_exit_button.bg = "#87bba2"
+
+#
+sign_toptxt = Text(sign_window, text="MY BUSINESS TECHNOLOGIES", size=20)
+sign_toptxt2 = Text(sign_window, text="Please Enter Details", size=15) # Creating signup window
+
+sign_box = Box(sign_window, layout="grid")
+sign_blanktxt1 = Text(sign_box, text="            ", grid=[1,0])
+sign_txt1 = Text(sign_box, text="Enter Username", align="left", grid=[0,0], size=15)
+sign_txtbox1 = TextBox(sign_box, hide_text=False, grid=[2,0], width=30)
+sign_txtbox1.bg = '#87bba2' # Creating a box with a grid layout and putting enter username textbox into box
+
+sign_blanktxt2 = Text(sign_box, text="            ", grid=[1,1])
+sign_txt2 = Text(sign_box, text="Enter Password", align="left", grid=[0,1], size=15)
+sign_txtbox2 = TextBox(sign_box, hide_text=True, grid=[2,1], width=30)
+
+sign_blanktxt3 = Text(sign_box, text="            ", grid=[1,2])
+sign_txt3 = Text(sign_box, text="Confirm Password", align="left", grid=[0,2], size=15)
+sign_txtbox3 = TextBox(sign_box, hide_text=True, grid=[2,2], width=30)
+
+sign_blanktxt4 = Text(sign_box, text="            ", grid=[1,3])
+sign_txt4 = Text(sign_box, text="Enter First Name", align="left", grid=[0,3], size=15)
+sign_txtbox4 = TextBox(sign_box, hide_text=False, grid=[2,3], width=30)
+
+sign_blanktxt5 = Text(sign_box, text="            ", grid=[1,4])
+sign_txt5 = Text(sign_box, text="Enter Surname", align="left", grid=[0,4], size=15)
+sign_txtbox5 = TextBox(sign_box, hide_text=False, grid=[2,4], width=30)
+
+sign_blanktxt6 = Text(sign_box, text="            ", grid=[1,5])
+sign_txt6 = Text(sign_box, text="Enter Email", align="left", grid=[0,5], size=15)
+sign_txtbox6 = TextBox(sign_box, hide_text=False, grid=[2,5], width=30)
+#
+sign_window.hide() # hide until needed
+
+
+
+app.display() # Display app on startup
+
+
