@@ -6,14 +6,18 @@
 ################################################################################################
 #                   CHANGE LOG:
 #                   +--------------------------------------------------------------------------+
-#                   | 25/06/2025    V1       DATABASE/LOGIN/SIGNUP CREATED             ND      |
-#                   | 06/07/2025    V2       DASHBOARD/???????? CREATED                ND      |
+#                   | 25/06/2025    V1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
+#                   | 06/07/2025    V2       DASHBOARD/???????? CREATED                DN      |
 #                   |                                                                          |
 #                   +--------------------------------------------------------------------------+
 
 
 
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, info
+from functools import partial
+from email.policy import default
+from tkinter import UNDERLINE
+from typing import reveal_type
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info
 
 import sqlite3
 import os
@@ -32,6 +36,7 @@ import os.path
 #---------------------
 # Creating the database
 #---------------------
+
 sql = """
 CREATE TABLE IF NOT EXISTS "User" (
 "UserID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -50,15 +55,13 @@ CREATE TABLE IF NOT EXISTS "Consultation" (
 FOREIGN KEY(UserID) REFERENCES User(UserID)
 );
 
-insert into User (user_name, user_firstname, user_lastname, user_password, user_email) values ("Wicked","Declan","Newell","Declan123","declannew02@icloud.com");
-insert into Consultation (consultation_date, consultation_timeslot, consultation_additionalinfo, UserID) values ("08/09/2026","09:00 - 10:00","Very Important","1")
-
 """
 
-
+""
 #---------------------
 # global variables
 #---------------------
+
 database_file = 'MyDB.db'
 
 if os.path.exists(database_file): 
@@ -125,10 +128,21 @@ def signup_create_account():
             info("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
     # add more validation here  
     else:
-            query = "INSERT INTO User (user_name, user_firstname, user_surname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
+            query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
             execute_sql(database_file, query, (username, firstname, lastname, password, email)) # SQL query to insert new user into User
             info("Success", "Account successfully created")
 
+
+def submit_review():
+    # Procedure to create a review
+    date = 
+    timeslot = 
+    additionalinfo = review_textbox.value
+    if additionalinfo == "":
+        info("Error", "Please write a review.") # Checks if review has anything written in it
+    else:
+        query = "INSERT INTO Consultation (consultation_date, consultation_timeslot, consultation_additionalinfo) VALUES (?, ?, ?)"
+        execute_sql(database_file, query, (date, timeslot, additionalinfo))
 
 def change_font():
     app.font = fonts.value
@@ -143,7 +157,22 @@ def open_signup():
 def open_login():
     print("OPENED LOGIN PAGE")
     sign_window.hide()
+    review_window.hide()
     app.show()
+
+def open_review():
+    print("OPENED REVIEW PAGE")
+    review_window.show()
+    app.hide()
+
+
+def review_rating(rating):
+    star_rating[0] = rating
+    for i in range(star_count):
+        if i < rating:
+            star_images[i].image = "GoldStar.png"
+        else:
+            star_images[i].image = "EmptyStar.png"
 
 
 
@@ -169,12 +198,13 @@ app = App(title='Login', height=450, bg='#D9AA45')
 #---------------------
 # sign up window
 #---------------------
+
 sign_window = Window(app, title='Sign Up', bg='#D9AA45', height=420)
 sign_exit_box = Box(sign_window, width='fill', align='top')
 sign_exit_button = PushButton(sign_exit_box, text='Back', align='left', command=open_login)
 
 sign_title_box = Box(sign_window, width='fill')
-sign_toptxt1 = Text(sign_window, text='SIGN UP PAGE', size=20)
+sign_toptxt1 = Text(sign_window, text='SIGN UP PAGE', size=20, underline=True)
 
 sign_box = Box(sign_window, layout='grid')
 
@@ -216,8 +246,9 @@ sign_window.hide()
 #---------------------
 # title
 #---------------------
+
 login_spacertxt1 = Text(app, text='                    ')
-login_toptxt1 = Text(app, text= 'OUR BUSINESS TECHNOLOGIES', size=20)
+login_toptxt1 = Text(app, text= 'OUR BUSINESS TECHNOLOGIES', size=20, underline=True)
 
 login_spacertxt2 = Text(app, text='                    ')
 login_toptxt2 = Text(app, text='To login please enter your details and press login', size=10)
@@ -228,6 +259,7 @@ login_spacertxt3 = Text(app, text='                    ')
 #---------------------
 # login
 #---------------------
+
 login_box = Box(app, layout='grid')
 
 login_blanktxt1 = Text(login_box, text='          ', grid=[1,0])
@@ -239,7 +271,7 @@ login_txt2 = Text(login_box, text='Enter Password', align='left', grid=[0,1], si
 login_password = TextBox(login_box, hide_text=True, align='left', grid=[3,1], width=30)
 
 login_spacertxt4 = Text(app, text='                    ')
-login_button = PushButton(app, text='Login', height=1, width=8)
+login_button = PushButton(app, text='Login', height=1, width=8, command=open_review)
 login_spacertxt5 = Text(app, text='                    ')
 
 no_account_txt = Text(app, text="Don't have an account? Click here!")
@@ -253,8 +285,45 @@ login_bottomtxt = Text(box, text='Forgot your password?', color='#1f8ced', size=
 
 
 #---------------------
+# review page
+#---------------------
+default_font = "arial"
+
+review_window = Window(app, title="OUR BUSINESS TECHNOLOGIES! - Leave your Review!", bg='#D9AA45', height=420)
+review_exit_box = Box(review_window, width='fill', align='top')
+review_exit_button = PushButton(review_exit_box, text='Back', align='left', command=open_login)
+
+review_title_box = Box(review_window, width='fill')
+review_toptxt1 = Text(review_window, text='Please leave your review here!', size=20, underline=True)
+
+review_box = Box(review_window, layout='grid')
+
+review_textbox = TextBox(review_box, hide_text=False, multiline=True, align='left', grid=[0,0], width=50, height=15)
+review_textbox.font = default_font
+
+review_txt1 = Text(review_window, text='     Star Rating', align="left", size=15)
+review_blanktxt1 = Text(review_window, text='        ', align="left")
+
+star_count = 5
+star_rating = [0]
+
+star_box = Box(review_window, layout="grid", align="left")
+star_images = []
+for i in range(star_count):
+    pic = Picture(star_box, image="EmptyStar.png", grid=[i,0], width=32, height=32)
+    pic.when_clicked = partial(review_rating, i+1)
+    star_images.append(pic)
+
+review_submit_box = Box(review_window, width='fill', align='bottom')
+review_submit_button = PushButton(review_submit_box, text='Submit', align='right', command=submit_review)
+
+review_window.hide()
+
+
+#---------------------
 # fonts
 #---------------------
+
 font_controls = Box(app, align='bottom', width='fill', border=True)
 
 fonts = Combo(font_controls, options=["arial","verdana","tahoma","segoe ui","times","georgia","courier new","consolas","comic sans MS","impact"], align="left", command=change_font)
@@ -264,4 +333,5 @@ fonts = Combo(font_controls, options=["arial","verdana","tahoma","segoe ui","tim
 #---------------------
 # display
 #---------------------
+
 app.display()
