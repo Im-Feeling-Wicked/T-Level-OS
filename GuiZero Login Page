@@ -6,19 +6,20 @@
 ################################################################################################
 #                   CHANGE LOG:
 #                   +--------------------------------------------------------------------------+
-#                   | 25/06/2025    V1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
+#                   | 10/09/2026    V1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
 #                   | 06/07/2025    V2       DASHBOARD/???????? CREATED                DN      |
 #                   |                                                                          |
 #                   +--------------------------------------------------------------------------+
 
 
 
+from datetime import datetime
 from functools import partial
 from email.policy import default
-from tkinter import UNDERLINE
+from tkinter import UNDERLINE       # Underlines text
 from typing import reveal_type
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info
-
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info       # Creates the GUI
+import re   # Perform format checks
 import sqlite3
 import os
 import os.path
@@ -41,19 +42,21 @@ sql = """
 CREATE TABLE IF NOT EXISTS "User" (
 "UserID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 "user_name" TEXT,
-user_firstname TEXT,
-user_lastname TEXT,
-user_password TEXT,
-user_email
+"user_firstname" TEXT,
+"user_lastname" TEXT,
+"user_password" TEXT,
+"user_email"
 );
-CREATE TABLE IF NOT EXISTS "Consultation" (
-"ConsultationID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-"consultation_date" TEXT,
-"consultation_timeslot" TEXT,
-"consultation_additionalinfo" TEXT,
+CREATE TABLE IF NOT EXISTS "Review" (
+"ReviewID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+"review_date" TEXT,
+"review_timeslot" TEXT,
+"review_additionalinfo" TEXT,
 "UserID" INTEGER,
 FOREIGN KEY(UserID) REFERENCES User(UserID)
 );
+
+insert into User (user_name,user_firstname,user_lastname,user_password,user_email) VALUES ("Wicked","Declan","Newell","declan123","declannew02@icloud.com")
 
 """
 
@@ -72,10 +75,12 @@ cursor = conn.cursor()
 cursor.executescript(sql)
 conn.commit() # Initialising SQL integration 
 
+user_LoggedIn = None
+
 
 
 #---------------------
-# back-end sub-routines
+# sub-routines
 #---------------------
 def query_database(database, query, params=()):
 	# Function to query the database
@@ -101,9 +106,8 @@ def login_user():
     if login_username.value == "":
         info("Error", "You must enter a valid username") # Checks if username input is empty (presence check)
     elif login_password.value == "":
-        info("Error", "You must enter a valid password") # 
+        info("Error", "You must enter a valid password") # Checks if password input is empty (presence check)
     else:
-        
         query = "SELECT * from User WHERE user_name = ? AND user_password = ?"
         rows = query_database(database_file, query, (login_username.value, login_password.value)) # SQL query to retrieve username and password from database 
         if len(rows) == 0:
@@ -112,7 +116,8 @@ def login_user():
             user_LoggedIn = rows[0][0] # Set UserID to user_LoggedIn variable
             #open_dashboard()
 	        # output welcome message
-            info("Success", "???????")
+            info("Success", "Login Succeeded!")
+            open_review()
 
 
 def signup_create_account():
@@ -122,11 +127,31 @@ def signup_create_account():
     firstname = sign_firstname.value
     lastname = sign_lastname.value
     email = sign_email.value
-    if username.isalpha() == False:
+
+    # Presence Check
+    if not all([username, password, firstname, lastname, email]):
+        info("Error", "One or more fields remain empty. Please fill them.")
+
+    # Type Check
+    elif username.isalpha() == False:
             info("Error", "Username cannot contain numbers or special characters") # Checks if username has no numbers or special characters (type check)
     elif firstname.isalpha() == False:
             info("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
-    # add more validation here  
+
+    # Length Check
+    elif len(username) < 6 or len(username) > 20:
+        info("Error", "Username must be between 6 and 20 characters long.")
+    elif len(password) < 6:
+        info("Error", "Password must be longer than 6 characters.")
+
+    # Format Check
+    elif not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        info("Error", "Please enter a valid email address.")
+    elif not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
+        info("Error", "Password must contain at least one letter and one number.")
+
+    
+    
     else:
             query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
             execute_sql(database_file, query, (username, firstname, lastname, password, email)) # SQL query to insert new user into User
@@ -135,14 +160,16 @@ def signup_create_account():
 
 def submit_review():
     # Procedure to create a review
-    date = 
-    timeslot = 
+    date = datetime.today().strftime("%d-%m-%Y")
+    timeslot = "17:30"
     additionalinfo = review_textbox.value
     if additionalinfo == "":
         info("Error", "Please write a review.") # Checks if review has anything written in it
     else:
-        query = "INSERT INTO Consultation (consultation_date, consultation_timeslot, consultation_additionalinfo) VALUES (?, ?, ?)"
-        execute_sql(database_file, query, (date, timeslot, additionalinfo))
+        query = "INSERT INTO Review (review_date, review_timeslot, review_additionalinfo, UserID) VALUES (?, ?, ?, ?)"
+        execute_sql(database_file, query, (date, timeslot, additionalinfo, user_LoggedIn))
+        info("Success", "Review submitted.")
+
 
 def change_font():
     app.font = fonts.value
@@ -160,7 +187,12 @@ def open_login():
     review_window.hide()
     app.show()
 
+
 def open_review():
+    global user_LoggedIn
+    if user_LoggedIn is None:
+        info("Error", "You must log in first to leave a review.")
+        return
     print("OPENED REVIEW PAGE")
     review_window.show()
     app.hide()
@@ -192,52 +224,196 @@ def review_rating(rating):
 #                            #
 ##############################
 
-app = App(title='Login', height=450, bg='#D9AA45')
+app = App(
+    title='Login', 
+    height=600,
+    width=600,
+    bg='#e6e6e6'
+    )
 
 
 #---------------------
 # sign up window
 #---------------------
 
-sign_window = Window(app, title='Sign Up', bg='#D9AA45', height=420)
-sign_exit_box = Box(sign_window, width='fill', align='top')
-sign_exit_button = PushButton(sign_exit_box, text='Back', align='left', command=open_login)
+sign_window = Window(
+    app, 
+    title='Sign Up', 
+    bg='#e6e6e6', 
+    height=600,
+    width=600
+    )
+sign_exit_box = Box(
+    sign_window, 
+    width='fill', 
+    align='top'
+    )
+sign_exit_button = PushButton(
+    sign_exit_box, 
+    text='Back', 
+    align='left', 
+    command=open_login
+    )
 
-sign_title_box = Box(sign_window, width='fill')
-sign_toptxt1 = Text(sign_window, text='SIGN UP PAGE', size=20, underline=True)
+sign_title_box = Box(
+    sign_window, 
+    width='fill'
+    )
+sign_toptxt1 = Text(
+    sign_window, 
+    text='SIGN UP PAGE', 
+    size=20, 
+    underline=True
+    )
 
-sign_box = Box(sign_window, layout='grid')
+sign_box = Box(
+    sign_window, 
+    layout='grid'
+    )
 
-sign_blanktxt1 = Text(sign_box, text='          ', grid=[1,0])
-sign_txt1 = Text(sign_box, text='Enter Username', align='left', grid=[0,0], size=15)
-sign_username = TextBox(sign_box, hide_text=False, align='left', grid=[3,0], width=30)
+sign_blanktxt1 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,0]
+    )
+sign_txt1 = Text(
+    sign_box, 
+    text='Enter Username', 
+    align='left', 
+    grid=[0,0], 
+    size=15
+    )
+sign_username = TextBox(
+    sign_box, 
+    hide_text=False, 
+    align='left', 
+    grid=[3,0], 
+    width=30
+    )
 
-sign_blanktxt2 = Text(sign_box, text='          ', grid=[1,1])
-sign_txt2 = Text(sign_box, text='Enter Password', align='left', grid=[0,1], size=15)
-sign_password = TextBox(sign_box, hide_text=True, align='left', grid=[3,1], width=30)
+sign_blanktxt2 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,1]
+    )
+sign_txt2 = Text(
+    sign_box, 
+    text='Enter Password', 
+    align='left', 
+    grid=[0,1], 
+    size=15
+    )
+sign_password = TextBox(
+    sign_box, 
+    hide_text=True, 
+    align='left', 
+    grid=[3,1], 
+    width=30
+    )
 
-sign_blanktxt3 = Text(sign_box, text='          ', grid=[1,2])
-sign_txt3 = Text(sign_box, text='Confirm Password', align='left', grid=[0,2], size=15)
-sign_confirm_password = TextBox(sign_box, hide_text=True, align='left', grid=[3,2], width=30)
+sign_blanktxt3 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,2]
+    )
+sign_txt3 = Text(
+    sign_box, 
+    text='Confirm Password', 
+    align='left', 
+    grid=[0,2], 
+    size=15
+    )
+sign_confirm_password = TextBox(
+    sign_box, 
+    hide_text=True, 
+    align='left', 
+    grid=[3,2], 
+    width=30
+    )
 
-sign_blanktxt4 = Text(sign_box, text='          ', grid=[1,3])
-sign_txt4 = Text(sign_box, text='Email', align='left', grid=[0,3], size=15)
-sign_email = TextBox(sign_box, hide_text=False, align='left', grid=[3,3], width=30)
+sign_blanktxt4 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,3]
+    )
+sign_txt4 = Text(
+    sign_box, 
+    text='Email', 
+    align='left', 
+    grid=[0,3], 
+    size=15
+    )
+sign_email = TextBox(
+    sign_box, 
+    hide_text=False, 
+    align='left', 
+    grid=[3,3], 
+    width=30
+    )
 
-sign_blanktxt5 = Text(sign_box, text='          ', grid=[1,4])
-sign_txt5 = Text(sign_box, text='First Name', align='left', grid=[0,4], size=15)
-sign_firstname = TextBox(sign_box, hide_text=False, align='left', grid=[3,4], width=30)
+sign_blanktxt5 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,4]
+    )
+sign_txt5 = Text(
+    sign_box, 
+    text='First Name', 
+    align='left', 
+    grid=[0,4], 
+    size=15
+    )
+sign_firstname = TextBox(
+    sign_box, 
+    hide_text=False, 
+    align='left', 
+    grid=[3,4], 
+    width=30
+    )
 
-sign_blanktxt6 = Text(sign_box, text='          ', grid=[1,5])
-sign_txt6 = Text(sign_box, text='Last Name', align='left', grid=[0,5], size=15)
-sign_lastname = TextBox(sign_box, hide_text=False, align='left', grid=[3,5], width=30)
+sign_blanktxt6 = Text(
+    sign_box, 
+    text='          ', 
+    grid=[1,5]
+    )
+sign_txt6 = Text(
+    sign_box, 
+    text='Last Name', 
+    align='left', 
+    grid=[0,5], 
+    size=15
+    )
+sign_lastname = TextBox(
+    sign_box, 
+    hide_text=False, 
+    align='left', 
+    grid=[3,5], 
+    width=30)
 
-sign_spacertxt = Text(sign_window, text='                    ')
-sign_spacertxt2 = Text(sign_window, text='                    ')
-sign_txt7 = Text(sign_window, text='Finished entering your details? Click here to join us!')
+sign_spacertxt = Text(
+    sign_window, 
+    text='                    '
+    )
+sign_spacertxt2 = Text(
+    sign_window, 
+    text='                    '
+    )
+sign_txt7 = Text(
+    sign_window, 
+    text='Finished entering your details? Click here to join us!'
+    )
 
-sign_spacertxt3 = Text(sign_window, text='                    ')
-sign_join_button = PushButton(sign_window, text='Join us!', height=1, width=8, command=signup_create_account)
+sign_spacertxt3 = Text(
+    sign_window, 
+    text='                    '
+    )
+sign_join_button = PushButton(
+    sign_window, 
+    text='Join us!', 
+    height=1, 
+    width=8, 
+    command=signup_create_account
+    )
 
 sign_window.hide()
 
@@ -247,12 +423,30 @@ sign_window.hide()
 # title
 #---------------------
 
-login_spacertxt1 = Text(app, text='                    ')
-login_toptxt1 = Text(app, text= 'OUR BUSINESS TECHNOLOGIES', size=20, underline=True)
+login_spacertxt1 = Text(
+    app, 
+    text='                    '
+    )
+login_toptxt1 = Text(
+    app, 
+    text= 'OUR BUSINESS TECHNOLOGIES', 
+    size=20, 
+    underline=True
+    )
 
-login_spacertxt2 = Text(app, text='                    ')
-login_toptxt2 = Text(app, text='To login please enter your details and press login', size=10)
-login_spacertxt3 = Text(app, text='                    ')
+login_spacertxt2 = Text(
+    app, 
+    text='                    '
+    )
+login_toptxt2 = Text(
+    app, 
+    text='To login please enter your details and press login', 
+    size=10
+    )
+login_spacertxt3 = Text(
+    app, 
+    text='                    '
+    )
 
 
 
@@ -260,27 +454,94 @@ login_spacertxt3 = Text(app, text='                    ')
 # login
 #---------------------
 
-login_box = Box(app, layout='grid')
+login_box = Box(
+    app, 
+    layout='grid'
+    )
 
-login_blanktxt1 = Text(login_box, text='          ', grid=[1,0])
-login_txt1 = Text(login_box, text='Enter Username', align='left', grid=[0,0], size=15)
-login_username = TextBox(login_box, hide_text=False, align='left', grid=[3,0], width=30)
+login_blanktxt1 = Text(
+    login_box, 
+    text='          ', 
+    grid=[1,0]
+    )
+login_txt1 = Text(
+    login_box, 
+    text='Enter Username', 
+    align='left', 
+    grid=[0,0], 
+    size=15
+    )
+login_username = TextBox(
+    login_box, 
+    hide_text=False, 
+    align='left', 
+    grid=[3,0], 
+    width=30
+    )
 
-login_blanktxt2 = Text(login_box, text='          ', grid=[1,1])
-login_txt2 = Text(login_box, text='Enter Password', align='left', grid=[0,1], size=15)
-login_password = TextBox(login_box, hide_text=True, align='left', grid=[3,1], width=30)
+login_blanktxt2 = Text(
+    login_box, 
+    text='          ', 
+    grid=[1,1]
+    )
+login_txt2 = Text(
+    login_box, 
+    text='Enter Password', 
+    align='left', 
+    grid=[0,1], 
+    size=15
+    )
+login_password = TextBox(
+    login_box, 
+    hide_text=True, 
+    align='left', 
+    grid=[3,1], 
+    width=30
+    )
 
-login_spacertxt4 = Text(app, text='                    ')
-login_button = PushButton(app, text='Login', height=1, width=8, command=open_review)
-login_spacertxt5 = Text(app, text='                    ')
+login_spacertxt4 = Text(
+    app, 
+    text='                    '
+    )
+login_button = PushButton(
+    app, 
+    text='Login', 
+    height=1, 
+    width=8, 
+    command=login_user
+    )
+login_spacertxt5 = Text(
+app, 
+text='                    '
+)
 
-no_account_txt = Text(app, text="Don't have an account? Click here!")
-login_signup = PushButton(app, text='Sign Up', height=1, width=8, command=open_signup)
+no_account_txt = Text(
+    app, 
+    text="Don't have an account? Click here!"
+    )
+login_signup = PushButton(
+    app, 
+    text='Sign Up', 
+    height=1, 
+    width=8, 
+    command=open_signup
+    )
 
-login_spacertxt6 = Text(app,text='                    ')
-box = Box(app, border=1)
-box.bg = '#ddc48e'
-login_bottomtxt = Text(box, text='Forgot your password?', color='#1f8ced', size=12)
+login_spacertxt6 = Text(
+    app,
+    text='                    '
+    )
+box = Box(
+    app,
+    border=1
+    )
+box.bg = '#ffffff'
+login_bottomtxt = Text(
+    box, 
+    text='Forgot your password?', 
+    color='#1f8ced', 
+    size=12
+    )
 
 
 
@@ -289,44 +550,183 @@ login_bottomtxt = Text(box, text='Forgot your password?', color='#1f8ced', size=
 #---------------------
 default_font = "arial"
 
-review_window = Window(app, title="OUR BUSINESS TECHNOLOGIES! - Leave your Review!", bg='#D9AA45', height=420)
-review_exit_box = Box(review_window, width='fill', align='top')
-review_exit_button = PushButton(review_exit_box, text='Back', align='left', command=open_login)
+review_window = Window(
+    app, 
+    title="OUR BUSINESS TECHNOLOGIES! - Leave your Review!", 
+    bg='#e6e6e6', 
+    height=600,
+    width=600
+    )
+review_exit_box = Box(
+    review_window, 
+    width='fill', 
+    align='top'
+    )
+review_exit_button = PushButton(
+    review_exit_box, 
+    text='Back', 
+    align='left',
+    height=2,
+    command=open_login
+    )
 
-review_title_box = Box(review_window, width='fill')
-review_toptxt1 = Text(review_window, text='Please leave your review here!', size=20, underline=True)
+review_top_image = Picture(
+    review_exit_box,
+    align='right',
+    image='ReviewPageImage.png'
+    )
 
-review_box = Box(review_window, layout='grid')
+review_title_box = Box(
+    review_window, 
+    width='fill'
+    )
+review_toptxt1 = Text(
+    review_window, 
+    text='Please leave your review here!', 
+    size=20, 
+    underline=True
+    )
 
-review_textbox = TextBox(review_box, hide_text=False, multiline=True, align='left', grid=[0,0], width=50, height=15)
+review_box = Box(
+    review_window, 
+    layout='grid'
+    )
+
+review_textbox = TextBox(
+    review_box, 
+    hide_text=False, 
+    multiline=True, 
+    align='left', 
+    grid=[0,0], 
+    width=50, 
+    height=15,
+    )
+review_textbox.bg = "#ffffff"
 review_textbox.font = default_font
 
-review_txt1 = Text(review_window, text='     Star Rating', align="left", size=15)
-review_blanktxt1 = Text(review_window, text='        ', align="left")
+review_txt1 = Text(
+    review_window, 
+    text='     Star Rating', 
+    align="left", 
+    size=15
+    )
+review_blanktxt1 = Text(
+    review_window, 
+    text='        ', 
+    align="left"
+    )
 
 star_count = 5
 star_rating = [0]
 
-star_box = Box(review_window, layout="grid", align="left")
+star_box = Box(
+    review_window, 
+    layout="grid", 
+    align="left"
+    )
 star_images = []
 for i in range(star_count):
-    pic = Picture(star_box, image="EmptyStar.png", grid=[i,0], width=32, height=32)
-    pic.when_clicked = partial(review_rating, i+1)
+    pic = Picture(
+        star_box, 
+        image="EmptyStar.png", 
+        grid=[i,0]
+        )
+    pic.when_clicked = partial(
+        review_rating, 
+        i+1
+        )
     star_images.append(pic)
 
-review_submit_box = Box(review_window, width='fill', align='bottom')
-review_submit_button = PushButton(review_submit_box, text='Submit', align='right', command=submit_review)
+review_submit_box = Box(
+    review_window, 
+    width='fill', 
+    align='bottom'
+    )
+review_submit_button = PushButton(
+    review_submit_box, 
+    text='Submit', 
+    align='right', 
+    command=submit_review
+    )
 
 review_window.hide()
+
+#---------------------
+# forgot password page
+#---------------------
+
+forgot_window = Window(
+    app,
+    title="Forgotten password",
+    bg='#e6e6e6',
+    height=600,
+    width=600
+    )
+forgot_exit_box = Box(
+    forgot_window,
+    width="fill",
+    align="top"
+    )
+forgot_exit_button = PushButton(
+    forgot_exit_box,
+    text="Back",
+    align="left",
+    command=open_login)
+
+forgot_title_box = Box(
+    forgot_window,
+    width="fill"
+    )
+forgot_toptxt1 = Text(
+    forgot_window,
+    text="Enter your details here!",
+    size=20,
+    underline=True
+    )
+
+forgot_box = Box(
+    forgot_window,
+    layout="grid"
+    )
+
+forgot_textbox = TextBox(
+    forgot_box,
+    hide_text=False,
+    align="left",
+    grid=[0,0],
+    width=30
+    )
+review_textbox.bg = "#ffffff"
+forgot_textbox.font = default_font
+
 
 
 #---------------------
 # fonts
 #---------------------
 
-font_controls = Box(app, align='bottom', width='fill', border=True)
+font_controls = Box(
+    app, 
+    align='bottom', 
+    width='fill', 
+    border=True
+    )
 
-fonts = Combo(font_controls, options=["arial","verdana","tahoma","segoe ui","times","georgia","courier new","consolas","comic sans MS","impact"], align="left", command=change_font)
+fonts = Combo(font_controls, 
+              options=[
+                  "arial",
+                  "verdana",
+                  "tahoma",
+                  "segoe ui",
+                  "times",
+                  "georgia",
+                  "courier new",
+                  "consolas",
+                  "comic sans MS",
+                  "impact"
+                  ], 
+              align="left", 
+              command=change_font)
 
 
 
