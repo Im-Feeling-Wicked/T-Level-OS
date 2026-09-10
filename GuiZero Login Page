@@ -52,11 +52,10 @@ CREATE TABLE IF NOT EXISTS "Review" (
 "review_date" TEXT,
 "review_timeslot" TEXT,
 "review_additionalinfo" TEXT,
+"review_stars" INTEGER,
 "UserID" INTEGER,
 FOREIGN KEY(UserID) REFERENCES User(UserID)
 );
-
-insert into User (user_name,user_firstname,user_lastname,user_password,user_email) VALUES ("Wicked","Declan","Newell","declan123","declannew02@icloud.com")
 
 """
 
@@ -67,8 +66,8 @@ insert into User (user_name,user_firstname,user_lastname,user_password,user_emai
 
 database_file = 'MyDB.db'
 
-if os.path.exists(database_file): 
-    os.remove(database_file) # Removes database each time program starts for test purposes
+#if os.path.exists(database_file): 
+#    os.remove(database_file) # Removes database each time program starts for test purposes
 
 conn = sqlite3.connect(database_file)
 cursor = conn.cursor()
@@ -183,10 +182,17 @@ def open_signup():
 
 def open_login():
     print("OPENED LOGIN PAGE")
+    forgot_window.hide()
     sign_window.hide()
     review_window.hide()
     app.show()
 
+
+def open_forgot():
+    print("OPENED FORGOTTEN PASSWORD PAGE")
+    app.hide()
+    forgot_window.show()
+ 
 
 def open_review():
     global user_LoggedIn
@@ -542,6 +548,7 @@ login_bottomtxt = Text(
     color='#1f8ced', 
     size=12
     )
+login_bottomtxt.when_clicked = open_forgot
 
 
 
@@ -689,15 +696,34 @@ forgot_box = Box(
     layout="grid"
     )
 
+sign_spacertxt = Text(
+    forgot_window, 
+    text='                    '
+    )
+
+forgot_blanktxt1 = Text(
+    forgot_box, 
+    text='          ', 
+    grid=[1,0]
+    )
+forgot_username_text = Text(
+    forgot_box, 
+    text='Enter Username', 
+    align='left', 
+    grid=[0,0], 
+    size=15
+    )
 forgot_textbox = TextBox(
     forgot_box,
     hide_text=False,
     align="left",
-    grid=[0,0],
+    grid=[3,0],
     width=30
     )
 review_textbox.bg = "#ffffff"
 forgot_textbox.font = default_font
+
+forgot_window.hide()
 
 
 
