@@ -7,7 +7,7 @@
 #                   CHANGE LOG:
 #                   +--------------------------------------------------------------------------+
 #                   | 10/09/2026    V1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
-#                   | 06/07/2025    V2       DASHBOARD/???????? CREATED                DN      |
+#                   | 16/09/2026    V2       DASHBOARD/???????? CREATED                DN      |
 #                   |                                                                          |
 #                   +--------------------------------------------------------------------------+
 
@@ -16,9 +16,9 @@
 from datetime import datetime
 from functools import partial
 from email.policy import default
-from tkinter import UNDERLINE       # Underlines text
+from tkinter import UNDERLINE, Menu       # Underlines text
 from typing import reveal_type
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info       # Creates the GUI
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info, error       # Creates the GUI
 import re   # Perform format checks
 import sqlite3
 import os
@@ -35,7 +35,7 @@ import os.path
 ##############################
 
 #---------------------
-# Creating the database
+# Creating database
 #---------------------
 
 sql = """
@@ -45,29 +45,31 @@ CREATE TABLE IF NOT EXISTS "User" (
 "user_firstname" TEXT,
 "user_lastname" TEXT,
 "user_password" TEXT,
-"user_email"
+"user_email" TEXT
 );
 CREATE TABLE IF NOT EXISTS "Review" (
 "ReviewID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 "review_date" TEXT,
-"review_timeslot" TEXT,
 "review_additionalinfo" TEXT,
 "review_stars" INTEGER,
 "UserID" INTEGER,
 FOREIGN KEY(UserID) REFERENCES User(UserID)
 );
 
+INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES ("Wicked", "Declan", "Newell", "declan123", "declannew02@icloud.com")
+
 """
 
-""
+
+
 #---------------------
 # global variables
 #---------------------
 
 database_file = 'MyDB.db'
 
-#if os.path.exists(database_file): 
-#    os.remove(database_file) # Removes database each time program starts for test purposes
+if os.path.exists(database_file): 
+    os.remove(database_file) # Removes database each time program starts for test purposes
 
 conn = sqlite3.connect(database_file)
 cursor = conn.cursor()
@@ -81,6 +83,7 @@ user_LoggedIn = None
 #---------------------
 # sub-routines
 #---------------------
+
 def query_database(database, query, params=()):
 	# Function to query the database
     with sqlite3.connect(database) as conn:
@@ -103,14 +106,14 @@ def login_user():
     # Procedure to validate login inputs and  ???????
     global user_LoggedIn # Global variable so that the UserID of the current user logged in can be used elsewhere as a FK
     if login_username.value == "":
-        info("Error", "You must enter a valid username") # Checks if username input is empty (presence check)
+        error("Error", "You must enter a valid username") # Checks if username input is empty (presence check)
     elif login_password.value == "":
-        info("Error", "You must enter a valid password") # Checks if password input is empty (presence check)
+        error("Error", "You must enter a valid password") # Checks if password input is empty (presence check)
     else:
         query = "SELECT * from User WHERE user_name = ? AND user_password = ?"
         rows = query_database(database_file, query, (login_username.value, login_password.value)) # SQL query to retrieve username and password from database 
         if len(rows) == 0:
-            info("Error", "Invalid Password Or Username") 
+            error("Error", "Invalid Password Or Username") 
         else:
             user_LoggedIn = rows[0][0] # Set UserID to user_LoggedIn variable
             #open_dashboard()
@@ -123,55 +126,68 @@ def signup_create_account():
     # Procedure to create an account
     username = sign_username.value
     password = sign_password.value
+    confirm_password = sign_confirm_password.value
     firstname = sign_firstname.value
     lastname = sign_lastname.value
     email = sign_email.value
 
     # Presence Check
     if not all([username, password, firstname, lastname, email]):
-        info("Error", "One or more fields remain empty. Please fill them.")
+        error("Error", "One or more fields remain empty. Please fill them.")
 
     # Type Check
     elif username.isalpha() == False:
-            info("Error", "Username cannot contain numbers or special characters") # Checks if username has no numbers or special characters (type check)
+            error("Error", "Username cannot contain numbers or special characters") # Checks if username has no numbers or special characters (type check)
     elif firstname.isalpha() == False:
-            info("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
+            error("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
+    elif lastname.isalpha() == False:
+            error("Error", "Firstname cannot contain numbers or special characters") # Checks if last name has no numbers or special characters (type check)
 
     # Length Check
     elif len(username) < 6 or len(username) > 20:
-        info("Error", "Username must be between 6 and 20 characters long.")
+        error("Error", "Username must be between 6 and 20 characters long.")
     elif len(password) < 6:
-        info("Error", "Password must be longer than 6 characters.")
+        error("Error", "Password must be at least 6 characters.")
 
     # Format Check
     elif not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        info("Error", "Please enter a valid email address.")
+        error("Error", "Please enter a valid email address.")
     elif not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
-        info("Error", "Password must contain at least one letter and one number.")
+        error("Error", "Password must contain at least one letter and one number.")
 
-    
+    # Confirm Password
+    elif confirm_password != password:
+        error("Error", "You must confirm your password.")
     
     else:
-            query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
-            execute_sql(database_file, query, (username, firstname, lastname, password, email)) # SQL query to insert new user into User
-            info("Success", "Account successfully created")
+        # Check for existing username or email
+        check_query = "SELECT * FROM User WHERE user_name = ? OR user_email = ?"
+        existing = query_database(database_file, check_query, (username, email))
+        if existing:
+            error("Error", "An account with this username or email already exists.")
+        else:
+                query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
+                execute_sql(database_file, query, (username, firstname, lastname, password, email)) # SQL query to insert new user into User
+                info("Success", "Account successfully created")
 
 
 def submit_review():
     # Procedure to create a review
     date = datetime.today().strftime("%d-%m-%Y")
-    timeslot = "17:30"
     additionalinfo = review_textbox.value
+    stars = star_rating[0]
     if additionalinfo == "":
-        info("Error", "Please write a review.") # Checks if review has anything written in it
+        error("Error", "Please write a review.") # Checks if review has anything written in it
+    elif stars == 0:
+        error("Error", "Please select a star rating.")
     else:
-        query = "INSERT INTO Review (review_date, review_timeslot, review_additionalinfo, UserID) VALUES (?, ?, ?, ?)"
-        execute_sql(database_file, query, (date, timeslot, additionalinfo, user_LoggedIn))
+        query = "INSERT INTO Review (review_date, review_additionalinfo, review_stars, UserID) VALUES (?, ?, ?, ?)"
+        execute_sql(database_file, query, (date, additionalinfo, stars, user_LoggedIn))
         info("Success", "Review submitted.")
 
 
-def change_font():
-    app.font = fonts.value
+def change_font(font):
+    app.font = font
 
 
 def open_signup():
@@ -197,7 +213,7 @@ def open_forgot():
 def open_review():
     global user_LoggedIn
     if user_LoggedIn is None:
-        info("Error", "You must log in first to leave a review.")
+        error("Error", "You must log in first to leave a review.")
         return
     print("OPENED REVIEW PAGE")
     review_window.show()
@@ -213,12 +229,22 @@ def review_rating(rating):
             star_images[i].image = "EmptyStar.png"
 
 
+def retrieve_password():
+    username = forgot_textbox1.value
+    email = forgot_textbox2.value
 
-#---------------------
-#  validation
-#---------------------
+    query = """
+    SELECT user_password
+    FROM User
+    WHERE user_name = ? AND user_email = ?
+    """
 
+    rows = query_database(database_file, query, (username, email))
 
+    if rows:
+        info("Password", f"Your password is: {rows[0][0]}")
+    else:
+        error("Error", "Username and email do not match.")
 
 
 
@@ -238,13 +264,14 @@ app = App(
     )
 
 
+
 #---------------------
 # sign up window
 #---------------------
 
 sign_window = Window(
     app, 
-    title='Sign Up', 
+    title='Delcan Fitness - Sign Up', 
     bg='#e6e6e6', 
     height=600,
     width=600
@@ -259,6 +286,12 @@ sign_exit_button = PushButton(
     text='Back', 
     align='left', 
     command=open_login
+    )
+
+sign_top_image = Picture(
+    sign_exit_box,
+    align='right',
+    image='guizero_login_logo.png'
     )
 
 sign_title_box = Box(
@@ -426,24 +459,31 @@ sign_window.hide()
 
 
 #---------------------
-# title
+# login
 #---------------------
 
-login_spacertxt1 = Text(
-    app, 
+login_topbox = Box(
+    app,
+    width='fill',
+    align='top')
+
+login_spacertxt2 = Text(
+    login_topbox, 
     text='                    '
     )
+
 login_toptxt1 = Text(
-    app, 
-    text= 'OUR BUSINESS TECHNOLOGIES', 
+    login_topbox, 
+    text= 'Declan Fitness', 
     size=20, 
     underline=True
     )
 
-login_spacertxt2 = Text(
-    app, 
-    text='                    '
+login_top_image = Picture(
+    login_topbox,
+    image='guizero_login_logo.png'
     )
+
 login_toptxt2 = Text(
     app, 
     text='To login please enter your details and press login', 
@@ -453,12 +493,6 @@ login_spacertxt3 = Text(
     app, 
     text='                    '
     )
-
-
-
-#---------------------
-# login
-#---------------------
 
 login_box = Box(
     app, 
@@ -559,7 +593,7 @@ default_font = "arial"
 
 review_window = Window(
     app, 
-    title="OUR BUSINESS TECHNOLOGIES! - Leave your Review!", 
+    title="Declan Fitness! - Leave your Review!", 
     bg='#e6e6e6', 
     height=600,
     width=600
@@ -573,14 +607,13 @@ review_exit_button = PushButton(
     review_exit_box, 
     text='Back', 
     align='left',
-    height=2,
     command=open_login
     )
 
 review_top_image = Picture(
     review_exit_box,
     align='right',
-    image='ReviewPageImage.png'
+    image='guizero_login_logo.png'
     )
 
 review_title_box = Box(
@@ -656,7 +689,11 @@ review_submit_button = PushButton(
     command=submit_review
     )
 
+review_textbox.bg = "#ffffff"
+
 review_window.hide()
+
+
 
 #---------------------
 # forgot password page
@@ -664,9 +701,9 @@ review_window.hide()
 
 forgot_window = Window(
     app,
-    title="Forgotten password",
+    title="Declan Fitness - Forgotten password",
     bg='#e6e6e6',
-    height=600,
+    height=270,
     width=600
     )
 forgot_exit_box = Box(
@@ -679,6 +716,12 @@ forgot_exit_button = PushButton(
     text="Back",
     align="left",
     command=open_login)
+
+forgot_top_image = Picture(
+    forgot_exit_box,
+    align='right',
+    image='guizero_login_logo.png'
+    )
 
 forgot_title_box = Box(
     forgot_window,
@@ -696,32 +739,68 @@ forgot_box = Box(
     layout="grid"
     )
 
-sign_spacertxt = Text(
-    forgot_window, 
-    text='                    '
+forgot_spacertxt1 = Text(
+    forgot_box, 
+    text='                    ',
+    grid=[0,0]
     )
 
 forgot_blanktxt1 = Text(
     forgot_box, 
     text='          ', 
-    grid=[1,0]
+    grid=[1,1]
     )
 forgot_username_text = Text(
     forgot_box, 
     text='Enter Username', 
     align='left', 
-    grid=[0,0], 
+    grid=[0,1], 
     size=15
     )
-forgot_textbox = TextBox(
+forgot_textbox1 = TextBox(
     forgot_box,
     hide_text=False,
     align="left",
-    grid=[3,0],
+    grid=[2,1],
     width=30
     )
-review_textbox.bg = "#ffffff"
-forgot_textbox.font = default_font
+
+forgot_blanktxt2 = Text(
+    forgot_box, 
+    text='          ', 
+    grid=[1,2]
+    )
+forgot_email_text = Text(
+    forgot_box, 
+    text='Enter Email', 
+    align='left', 
+    grid=[0,2], 
+    size=15
+    )
+forgot_textbox2 = TextBox(
+    forgot_box,
+    hide_text=False,
+    align="left",
+    grid=[2,2],
+    width=30
+    )
+
+forgot_getpw_box = Box(
+    forgot_window, 
+    width='fill'
+    )
+forgot_spacertxt2 = Text(
+    forgot_getpw_box, 
+    text='                    '
+    )
+forgot_getpw_button = PushButton(
+    forgot_getpw_box, 
+    text='Retrieve Password',
+    command=retrieve_password
+    )
+
+forgot_textbox1.font = default_font
+forgot_textbox2.font = default_font
 
 forgot_window.hide()
 
@@ -731,28 +810,79 @@ forgot_window.hide()
 # fonts
 #---------------------
 
-font_controls = Box(
-    app, 
-    align='bottom', 
-    width='fill', 
-    border=True
-    )
 
-fonts = Combo(font_controls, 
-              options=[
-                  "arial",
-                  "verdana",
-                  "tahoma",
-                  "segoe ui",
-                  "times",
-                  "georgia",
-                  "courier new",
-                  "consolas",
-                  "comic sans MS",
-                  "impact"
-                  ], 
-              align="left", 
-              command=change_font)
+
+#---------------------
+# settings
+#---------------------
+
+menubar = MenuBar(
+    app,
+    toplevel=["Settings"],
+    options=[
+        [
+            ["Arial", lambda: change_font("arial")],
+            ["Verdana", lambda: change_font("verdana")],
+            ["Tahoma", lambda: change_font("tahoma")],
+            ["Segoe UI", lambda: change_font("segoe ui")],
+            ["Times", lambda: change_font("times")],
+            ["Georgia", lambda: change_font("georgia")],
+            ["Courier New", lambda: change_font("courier new")],
+            ["Consolas", lambda: change_font("consolas")],
+            ["Comic Sans MS", lambda: change_font("comic sans MS")],
+            ["Impact", lambda: change_font("impact")]
+        ]
+    ]
+)
+
+
+#menubar = MenuBar(
+#    app,
+#    toplevel=["Settings"],
+#    options=[
+#        []
+#    ]
+#    )
+#
+#settings_menu = Menu(
+#    menubar.tk,
+#    tearoff=False
+#    )
+#
+#fonts_menu = Menu(
+#    settings_menu,
+#    tearoff=False
+#    )
+#
+#fonts = [
+#    "Arial",
+#    "Verdana",
+#    "Tahoma",
+#    "Segoe UI",
+#    "Times",
+#    "Georgia",
+#    "Courier New",
+#    "Consolas",
+#    "Comic Sans MS",
+#    "Impact"
+#    ]
+#
+#for font in fonts:
+#    fonts_menu.add_command(
+#        label=font,
+#        command=lambda f=font: change_font(f)
+#    )
+#
+#settings_menu.add_cascade(
+#    label="Fonts",
+#    menu=fonts_menu
+#    )
+#      
+#menubar.tk.entryconfig(
+#    "Settings",
+#    menu=settings_menu
+#)
+              
 
 
 
