@@ -13,15 +13,15 @@
 
 
 
-from datetime import datetime
-from functools import partial
-from email.policy import default
-from tkinter import UNDERLINE, Menu       # Underlines text
-from typing import reveal_type
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info, error       # Creates the GUI
-import re   # Perform format checks
-import sqlite3
-import os
+from datetime import datetime   # Imported so current date can be stored in database when user submits a review
+from functools import partial   # Imported so star ratings can be passed to review_rating() function
+from email.policy import default    
+from tkinter import UNDERLINE, Menu # Import tkinter components used by some GUI features
+from typing import reveal_type  
+from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info, error   # Import the required GUI components from guizero
+import re   # Import regular expressions for checking the format of email addresses and passwords
+import sqlite3  # Imported so program can create and use an SQLite database
+import os   # Import os so program can check if database file already exists
 import os.path
 
 
@@ -38,6 +38,12 @@ import os.path
 # Creating database
 #---------------------
 
+# SQL commands used to create tables required for program
+# User table stores information about each user
+# UserID is primary key and automatically increases when a new user is created
+# 
+# Review table stores reviews submitted by users
+# UserID is a foreign key which links each review back to the user who submitted it
 sql = """
 CREATE TABLE IF NOT EXISTS "User" (
 "UserID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -66,17 +72,16 @@ INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_
 # global variables
 #---------------------
 
-database_file = 'MyDB.db'
+database_file = 'MyDB.db'   # Name of database file
 
-if os.path.exists(database_file): 
-    os.remove(database_file) # Removes database each time program starts for test purposes
+if os.path.exists(database_file):   # Checks if database from previous program 
+    os.remove(database_file) # Deletes existing contents in the database for testing purposes
+conn = sqlite3.connect(database_file)   # Connect to the SQLite database
+cursor = conn.cursor()  # Create a cursor which allows SQL commands to be executed on the database
+cursor.executescript(sql)   # Execute the SQL commands stored in the sql variable
+conn.commit() # Saves changes made to database 
 
-conn = sqlite3.connect(database_file)
-cursor = conn.cursor()
-cursor.executescript(sql)
-conn.commit() # Initialising SQL integration 
-
-user_LoggedIn = None
+user_LoggedIn = None    # Stores the UserID of the currently logged in user. (None means that no user is currently logged in)
 
 
 
@@ -103,27 +108,31 @@ def execute_sql(database, sql_statement, params=()):
 
 
 def login_user():
-    # Procedure to validate login inputs and  ???????
-    global user_LoggedIn # Global variable so that the UserID of the current user logged in can be used elsewhere as a FK
+    # Procedure used to check login details against information stored in database
+    global user_LoggedIn # Allows procedure to change global user_LoggedIn variable
+    # Presence Checks
     if login_username.value == "":
-        error("Error", "You must enter a valid username") # Checks if username input is empty (presence check)
+        error("Error", "You must enter a valid username") 
     elif login_password.value == "":
-        error("Error", "You must enter a valid password") # Checks if password input is empty (presence check)
+        error("Error", "You must enter a valid password") 
     else:
+        # SQL query used to find a user whose username and password match the values entered
+        # The ? placeholders are used so that the values can be safely passed into the query
         query = "SELECT * from User WHERE user_name = ? AND user_password = ?"
-        rows = query_database(database_file, query, (login_username.value, login_password.value)) # SQL query to retrieve username and password from database 
+        # Run the query using the username and password entered by the user
+        rows = query_database(database_file, query, (login_username.value, login_password.value))
+        # If no matching record was found, the login details are incorrect
         if len(rows) == 0:
             error("Error", "Invalid Password Or Username") 
         else:
-            user_LoggedIn = rows[0][0] # Set UserID to user_LoggedIn variable
-            #open_dashboard()
-	        # output welcome message
-            info("Success", "Login Succeeded!")
-            open_review()
+            user_LoggedIn = rows[0][0] # The first value in the returned database row is the UserID
+            info("Success", "Login Succeeded!") # Display successful login message
+            open_review() # Open review page
 
 
 def signup_create_account():
     # Procedure to create an account
+    # Retrieve values entered into each sign-up textbox and store them in local variables
     username = sign_username.value
     password = sign_password.value
     confirm_password = sign_confirm_password.value
@@ -132,43 +141,55 @@ def signup_create_account():
     email = sign_email.value
 
     # Presence Check
+    # Checks that none of the fields are empty
     if not all([username, password, firstname, lastname, email]):
         error("Error", "One or more fields remain empty. Please fill them.")
 
     # Type Check
+    # .isalpha() checks checks that the fields only contains alphabetic characters
     elif username.isalpha() == False:
-            error("Error", "Username cannot contain numbers or special characters") # Checks if username has no numbers or special characters (type check)
+            error("Error", "Username cannot contain numbers or special characters") 
     elif firstname.isalpha() == False:
-            error("Error", "Firstname cannot contain numbers or special characters") # Checks if first name has no numbers or special characters (type check)
+            error("Error", "First name cannot contain numbers or special characters") 
     elif lastname.isalpha() == False:
-            error("Error", "Firstname cannot contain numbers or special characters") # Checks if last name has no numbers or special characters (type check)
+            error("Error", "Last name cannot contain numbers or special characters")
 
     # Length Check
+    # Checks that the username is between 6 and 20 characters
     elif len(username) < 6 or len(username) > 20:
         error("Error", "Username must be between 6 and 20 characters long.")
     elif len(password) < 6:
         error("Error", "Password must be at least 6 characters.")
 
     # Format Check
+    # Use a regular expression to check that the email follows a basic email format
     elif not re.match(r"[^@]+@[^@]+\.[^@]+", email):
         error("Error", "Please enter a valid email address.")
+    # Check that the password contains both:
+    # - at least one letter
+    # - at least one number
     elif not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
         error("Error", "Password must contain at least one letter and one number.")
 
     # Confirm Password
+    # Check that the confirmation password matches the original password
     elif confirm_password != password:
         error("Error", "You must confirm your password.")
     
     else:
-        # Check for existing username or email
+        # Search the database to see whether another account already uses the username or email
         check_query = "SELECT * FROM User WHERE user_name = ? OR user_email = ?"
         existing = query_database(database_file, check_query, (username, email))
+        # If a matching account was found, prevent another account from being created
         if existing:
             error("Error", "An account with this username or email already exists.")
         else:
-                query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
-                execute_sql(database_file, query, (username, firstname, lastname, password, email)) # SQL query to insert new user into User
-                info("Success", "Account successfully created")
+            # SQL INSERT statement used to add the new user's details to the User table
+            query = "INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES (?, ?, ?, ?, ?)"
+            # Execute the INSERT query and pass the user's information as parameters
+            execute_sql(database_file, query, (username, firstname, lastname, password, email)) 
+            # Tell the user their account was created
+            info("Success", "Account successfully created")
 
 
 def submit_review():
@@ -221,11 +242,13 @@ def open_review():
 
 
 def review_rating(rating):
+    # Store the selected star rating
+    # Rating will be a number between 1 and 5 stars
     star_rating[0] = rating
-    for i in range(star_count):
-        if i < rating:
+    for i in range(star_count): # Loop through all five star images
+        if i < rating:  # If the current star is below the selected rating, display a gold star
             star_images[i].image = "GoldStar.png"
-        else:
+        else:   # Otherwise it will be an empty star
             star_images[i].image = "EmptyStar.png"
 
 
@@ -247,6 +270,56 @@ def retrieve_password():
         error("Error", "Username and email do not match.")
 
 
+def dark_mode():
+    # Windows
+    app.bg = '#454545'
+    sign_window.bg = '#454545'
+    review_window.bg = '#454545'
+    forgot_window.bg = '#454545'
+
+    # Boxes
+    login_forgot_box.bg = '#595959'
+    review_textbox.bg = '#595959'
+
+    # Text
+    app.text_color = '#d6d6d6'
+    sign_window.text_color = '#d6d6d6'
+    review_window.text_color = '#d6d6d6'
+    forgot_window.text_color = '#d6d6d6'
+
+    # Special text
+    login_bottomtxt.color = '#1f8ced'
+
+
+def light_mode():
+    # Windows
+    app.bg = '#c7c7c7'
+    sign_window.bg = '#c7c7c7'
+    review_window.bg = '#c7c7c7'
+    forgot_window.bg = '#c7c7c7'
+
+    # Boxes
+    login_forgot_box.bg = '#ffffff'
+    review_textbox.bg = '#ffffff'
+
+    # Text
+    app.text_color = '#000000'
+    sign_window.text_color = '#000000'
+    review_window.text_color = '#000000'
+    forgot_window.text_color = '#000000'
+
+    # Special text
+    login_bottomtxt.color = '#1f8ced'
+
+
+def change_text_size(new_size):
+    # Windows
+    app.text_size = new_size
+    sign_window.text_size = new_size
+    review_window.text_size = new_size
+    forgot_window.text_size = new_size
+
+
 
 ##############################
 #                            #
@@ -259,8 +332,7 @@ def retrieve_password():
 app = App(
     title='Login', 
     height=600,
-    width=600,
-    bg='#e6e6e6'
+    width=600
     )
 
 
@@ -272,7 +344,6 @@ app = App(
 sign_window = Window(
     app, 
     title='Delcan Fitness - Sign Up', 
-    bg='#e6e6e6', 
     height=600,
     width=600
     )
@@ -571,15 +642,13 @@ login_spacertxt6 = Text(
     app,
     text='                    '
     )
-box = Box(
+login_forgot_box = Box(
     app,
     border=1
     )
-box.bg = '#ffffff'
 login_bottomtxt = Text(
-    box, 
+    login_forgot_box, 
     text='Forgot your password?', 
-    color='#1f8ced', 
     size=12
     )
 login_bottomtxt.when_clicked = open_forgot
@@ -589,12 +658,12 @@ login_bottomtxt.when_clicked = open_forgot
 #---------------------
 # review page
 #---------------------
+
 default_font = "arial"
 
 review_window = Window(
     app, 
     title="Declan Fitness! - Leave your Review!", 
-    bg='#e6e6e6', 
     height=600,
     width=600
     )
@@ -641,7 +710,6 @@ review_textbox = TextBox(
     width=50, 
     height=15,
     )
-review_textbox.bg = "#ffffff"
 review_textbox.font = default_font
 
 review_txt1 = Text(
@@ -657,6 +725,8 @@ review_blanktxt1 = Text(
     )
 
 star_count = 5
+# A list is used so that the value can be change inside the review_rating() function
+# The starting rating is 0 because the user hsa not selected a rating yet
 star_rating = [0]
 
 star_box = Box(
@@ -664,17 +734,23 @@ star_box = Box(
     layout="grid", 
     align="left"
     )
+# List used to store references to the five star Picture objects
 star_images = []
+# Create five star images
 for i in range(star_count):
+    # Create an empty star image and place it in the star box
     pic = Picture(
         star_box, 
         image="EmptyStar.png", 
         grid=[i,0]
         )
+    # When the user clicks the star, call the review_rating() with the appropriate rating
+    # i + 1 means the first star represents 1, the second star represents 2, etc
     pic.when_clicked = partial(
         review_rating, 
         i+1
         )
+    # Add the Picture object to the list so that its image can be changed later
     star_images.append(pic)
 
 review_submit_box = Box(
@@ -689,7 +765,6 @@ review_submit_button = PushButton(
     command=submit_review
     )
 
-review_textbox.bg = "#ffffff"
 
 review_window.hide()
 
@@ -702,7 +777,6 @@ review_window.hide()
 forgot_window = Window(
     app,
     title="Declan Fitness - Forgotten password",
-    bg='#e6e6e6',
     height=270,
     width=600
     )
@@ -807,54 +881,59 @@ forgot_window.hide()
 
 
 #---------------------
-# fonts
-#---------------------
-
-
-
-#---------------------
 # settings
 #---------------------
 
 menubar = MenuBar(
-    app,
-    toplevel=["Settings"],
-    options=[
-        [
-            ["Arial", lambda: change_font("arial")],
-            ["Verdana", lambda: change_font("verdana")],
-            ["Tahoma", lambda: change_font("tahoma")],
-            ["Segoe UI", lambda: change_font("segoe ui")],
-            ["Times", lambda: change_font("times")],
-            ["Georgia", lambda: change_font("georgia")],
-            ["Courier New", lambda: change_font("courier new")],
-            ["Consolas", lambda: change_font("consolas")],
-            ["Comic Sans MS", lambda: change_font("comic sans MS")],
-            ["Impact", lambda: change_font("impact")]
-        ]
-    ]
+   app,
+   toplevel=["Fonts","Text Size","Colour Scheme"],
+   options=[
+       [
+           ["Arial", lambda: change_font("arial")],
+           ["Verdana", lambda: change_font("verdana")],
+           ["Tahoma", lambda: change_font("tahoma")],
+           ["Segoe UI", lambda: change_font("segoe ui")],
+           ["Times", lambda: change_font("times")],
+           ["Georgia", lambda: change_font("georgia")],
+           ["Courier New", lambda: change_font("courier new")],
+           ["Consolas", lambda: change_font("consolas")],
+           ["Comic Sans MS", lambda: change_font("comic sans MS")],
+           ["Impact", lambda: change_font("impact")]
+       ],
+       [
+           ["Small (10)", lambda: change_text_size(10)],
+           ["Medium (14)", lambda: change_text_size(14)],
+           ["Large (18)", lambda: change_text_size(18)]
+       ],
+
+       [
+           ["Light Mode", light_mode],
+           ["Dark Mode", dark_mode]
+       ]
+   ]
 )
 
 
-#menubar = MenuBar(
+
+# menubar = MenuBar(
 #    app,
 #    toplevel=["Settings"],
 #    options=[
 #        []
 #    ]
 #    )
-#
-#settings_menu = Menu(
+
+# settings_menu = Menu(
 #    menubar.tk,
 #    tearoff=False
 #    )
-#
-#fonts_menu = Menu(
+
+# fonts_menu = Menu(
 #    settings_menu,
 #    tearoff=False
 #    )
-#
-#fonts = [
+
+# fonts = [
 #    "Arial",
 #    "Verdana",
 #    "Tahoma",
@@ -866,28 +945,28 @@ menubar = MenuBar(
 #    "Comic Sans MS",
 #    "Impact"
 #    ]
-#
-#for font in fonts:
+
+# for font in fonts:
 #    fonts_menu.add_command(
 #        label=font,
 #        command=lambda f=font: change_font(f)
 #    )
-#
-#settings_menu.add_cascade(
+
+# settings_menu.add_cascade(
 #    label="Fonts",
 #    menu=fonts_menu
 #    )
-#      
-#menubar.tk.entryconfig(
+     
+# menubar.tk.entryconfig(
 #    "Settings",
 #    menu=settings_menu
-#)
+# )
               
-
 
 
 #---------------------
 # display
 #---------------------
 
+light_mode()
 app.display()
