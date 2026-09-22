@@ -6,23 +6,24 @@
 ################################################################################################
 #                   CHANGE LOG:
 #                   +--------------------------------------------------------------------------+
-#                   | 10/09/2026    V1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
-#                   | 16/09/2026    V2       DASHBOARD/???????? CREATED                DN      |
-#                   |                                                                          |
+#                   | 10/09/2026    v1.1       DATABASE/LOGIN/SIGNUP CREATED             DN    |
+#                   | 13/09/2026    V1.2       FONT CHANGER CREATED                      DN    |
+#                   | 14/09/2026    V1.3       REVIEW/FORGOT PASSWORD CREATED            DN    |
+#                   | 15/09/2026    V1.4       LOGO/STAR RATING ADDED                    DN    |
+#                   | 16/09/2026    V1.5       DARKMODE/LIGHTMODE SWITCH CREATED         DN    |
 #                   +--------------------------------------------------------------------------+
 
 
 
 from datetime import datetime   # Imported so current date can be stored in database when user submits a review
 from functools import partial   # Imported so star ratings can be passed to review_rating() function
-from email.policy import default    
-from tkinter import UNDERLINE, Menu # Import tkinter components used by some GUI features
-from typing import reveal_type  
-from guizero import App, Box, Text, TextBox, Window, Slider, PushButton, MenuBar, Combo, Picture, info, error   # Import the required GUI components from guizero
+from guizero import App, Box, Text, TextBox, Window, PushButton, MenuBar, Picture, CheckBox, info, error   # type: ignore # Import the required GUI components from guizero
 import re   # Import regular expressions for checking the format of email addresses and passwords
 import sqlite3  # Imported so program can create and use an SQLite database
-import os   # Import os so program can check if database file already exists
-import os.path
+
+# COMMENTED OUT BECAUSE NO LONGER HAVE A NEED FOR OS OR OS.PATH
+#import os   # Import os so program can check if database file already exists
+#import os.path
 
 
 
@@ -62,7 +63,6 @@ CREATE TABLE IF NOT EXISTS "Review" (
 FOREIGN KEY(UserID) REFERENCES User(UserID)
 );
 
-INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_email) VALUES ("Wicked", "Declan", "Newell", "declan123", "declannew02@icloud.com")
 
 """
 
@@ -74,14 +74,19 @@ INSERT INTO User (user_name, user_firstname, user_lastname, user_password, user_
 
 database_file = 'MyDB.db'   # Name of database file
 
-if os.path.exists(database_file):   # Checks if database from previous program 
-    os.remove(database_file) # Deletes existing contents in the database for testing purposes
+# COMMENTED OUT BECAUSE NO LONGER HAVE A NEED FOR OS OR OS.PATH
+#if os.path.exists(database_file):   # Checks if database from previous program 
+#    os.remove(database_file) # Deletes existing contents in the database for testing purposes
+
 conn = sqlite3.connect(database_file)   # Connect to the SQLite database
 cursor = conn.cursor()  # Create a cursor which allows SQL commands to be executed on the database
 cursor.executescript(sql)   # Execute the SQL commands stored in the sql variable
 conn.commit() # Saves changes made to database 
 
 user_LoggedIn = None    # Stores the UserID of the currently logged in user. (None means that no user is currently logged in)
+
+
+
 
 
 
@@ -139,7 +144,10 @@ def signup_create_account():
     firstname = sign_firstname.value
     lastname = sign_lastname.value
     email = sign_email.value
-
+    # Terms & Conditions Check
+    if sign_tos.value == 0:
+        error("Error", "You must accept the Terms & Conditions before logging in.")
+        return
     # Presence Check
     # Checks that none of the fields are empty
     if not all([username, password, firstname, lastname, email]):
@@ -148,11 +156,11 @@ def signup_create_account():
     # Type Check
     # .isalpha() checks checks that the fields only contains alphabetic characters
     elif username.isalpha() == False:
-            error("Error", "Username cannot contain numbers or special characters") 
+        error("Error", "Username cannot contain numbers or special characters") 
     elif firstname.isalpha() == False:
-            error("Error", "First name cannot contain numbers or special characters") 
+        error("Error", "First name cannot contain numbers or special characters") 
     elif lastname.isalpha() == False:
-            error("Error", "Last name cannot contain numbers or special characters")
+        error("Error", "Last name cannot contain numbers or special characters")
 
     # Length Check
     # Checks that the username is between 6 and 20 characters
@@ -195,7 +203,7 @@ def signup_create_account():
 def submit_review():
     # Procedure to create a review
     date = datetime.today().strftime("%d-%m-%Y")
-    additionalinfo = review_textbox.value
+    additionalinfo = review_textbox.value.strip()
     stars = star_rating[0]
     if additionalinfo == "":
         error("Error", "Please write a review.") # Checks if review has anything written in it
@@ -214,6 +222,12 @@ def change_font(font):
 def open_signup():
     print("OPENED SIGN UP PAGE")
     app.hide()
+    sign_username.value = ""
+    sign_password.value = ""
+    sign_confirm_password.value = ""
+    sign_firstname.value = ""
+    sign_lastname.value = ""
+    sign_email.value = ""
     sign_window.show()
 
 
@@ -222,6 +236,8 @@ def open_login():
     forgot_window.hide()
     sign_window.hide()
     review_window.hide()
+    login_username.value = ""
+    login_password.value = ""
     app.show()
 
 
@@ -252,20 +268,32 @@ def review_rating(rating):
             star_images[i].image = "EmptyStar.png"
 
 
-def retrieve_password():
+def change_password():
     username = forgot_textbox1.value
     email = forgot_textbox2.value
+    new_password = forgot_textbox3.value
 
-    query = """
-    SELECT user_password
+    # Check that username and email match
+    check_query = """
+    SELECT user_name
     FROM User
     WHERE user_name = ? AND user_email = ?
     """
 
-    rows = query_database(database_file, query, (username, email))
+    rows = query_database(database_file, check_query, (username, email))
 
     if rows:
-        info("Password", f"Your password is: {rows[0][0]}")
+        # Change Password
+        update_query = """
+        UPDATE User
+        SET user_password = ?
+        WHERE user_name = ? AND user_email = ?
+        """
+
+        query_database(database_file, update_query, (new_password, username, email))
+
+        info("Password", "Your password has been changed successfully.")
+
     else:
         error("Error", "Username and email do not match.")
 
@@ -288,7 +316,7 @@ def dark_mode():
     forgot_window.text_color = '#d6d6d6'
 
     # Special text
-    login_bottomtxt.color = '#1f8ced'
+    login_bottomtxt.text_color = '#7dbcf5'
 
 
 def light_mode():
@@ -309,7 +337,7 @@ def light_mode():
     forgot_window.text_color = '#000000'
 
     # Special text
-    login_bottomtxt.color = '#1f8ced'
+    login_bottomtxt.text_color = '#1f8ced'
 
 
 def change_text_size(new_size):
@@ -318,6 +346,101 @@ def change_text_size(new_size):
     sign_window.text_size = new_size
     review_window.text_size = new_size
     forgot_window.text_size = new_size
+
+
+def show_tos():
+    if sign_tos.value == 1:
+        tos_show = app.yesno("Declan Fitness - Terms & Conditions",
+"""
+Last updated: 22/09/2026
+
+By using Declan Fitness, you agree to these Terms & Conditions. If you do not agree, please do not use the app.
+
+1. Use of the App
+Declan Fitness provides fitness, workout, and related information for general informational purposes. You are responsible for deciding whether an exercise or activity is appropriate for you.
+Declan Fitness is not a substitute for professional medical advice. If you have a medical condition, injury, or concern about exercising, consult an appropriate healthcare professional before using the app.
+
+2. Your Account
+You are responsible for keeping your account details and login information secure and for providing accurate information.
+You must not misuse the app, attempt to access other users' accounts, or use the service for unlawful purposes.
+
+3. Payments & Subscriptions
+If Declan Fitness offers paid features or subscriptions, prices and billing terms will be shown before purchase.
+You may cancel your subscription in accordance with the cancellation terms provided at the time of purchase. Any refunds will be handled in accordance with applicable law and the relevant app store's policies.
+
+4. Privacy & Personal Data
+We process your personal data in accordance with applicable data protection laws, including the UK GDPR where applicable.
+
+5. Intellectual Property
+All content, branding, designs, software, and materials provided through Declan Fitness belong to us or our licensors unless stated otherwise.
+You may use the app for your personal, non-commercial use but may not copy, distribute, or commercially exploit our content without permission.
+
+6. Availability & Liability
+We aim to keep Declan Fitness available and accurate but cannot guarantee that the app will always be uninterrupted, error-free, or suitable for every user.
+To the extent permitted by law, we are not responsible for losses arising from your use of the app, except where liability cannot legally be excluded.
+
+7. Changes
+We may update these Terms from time to time. Continued use of Declan Fitness after changes take effect means you accept the updated Terms.
+""")
+
+        if tos_show:
+            sign_tos.value = 1
+        else:
+            sign_tos.value = 0
+
+
+def show_cookies():
+    if login_cookies.value == 1:
+        cookies_show = app.yesno("Declan Fitness - Cookies",
+"""
+Last updated: 22/09/2026
+
+This Cookies Policy explains how Declan Fitness uses cookies and similar technologies when you use our app or website.
+
+1. What Are Cookies?
+Cookies are small files stored on your device that help websites and apps remember information and provide certain functionality.
+
+2. How We Use Cookies
+Declan Fitness may use cookies or similar technologies to:
+keep you signed in;
+remember your preferences;
+keep the app secure;
+understand how users use our service;
+improve the performance of the app; and
+provide relevant features and services.
+
+3. Types of Cookies
+Essential Cookies
+These cookies are necessary for the app or website to function correctly. They may be used for things such as authentication, security, and maintaining your session.
+These cookies cannot normally be disabled where they are required to provide a service you have requested.
+Analytics Cookies
+Where used, analytics cookies help us understand how people use Declan Fitness, such as which features are used most frequently.
+We will obtain consent where required by applicable law before using non-essential analytics cookies.
+Advertising Cookies
+If Declan Fitness uses advertising or tracking cookies, these may be used to help provide or measure personalised advertising.
+We will request your consent where required by applicable law before using these cookies.
+
+4. Managing Cookies
+You can control or delete cookies through your browser or device settings.
+Where required by law, Declan Fitness will provide a consent mechanism allowing you to accept or reject non-essential cookies.
+You can change your preferences at any time where a cookie preference tool is available.
+
+5. Third-Party Cookies
+Some services used by Declan Fitness may place their own cookies or similar technologies on your device.
+These may include analytics, payment, authentication, or other third-party services.
+Third parties are responsible for their own privacy and cookie practices.
+
+6. Privacy
+Cookies may sometimes involve information that can be linked to you or your device.
+
+7. Changes to This Policy
+We may update this Cookies Policy from time to time to reflect changes to our technology, services, or legal requirements.
+The latest version will always display the date it was last updated.
+""")
+        if cookies_show:
+            login_cookies.value = 1
+        else:
+            login_cookies.value = 0
 
 
 
@@ -329,11 +452,7 @@ def change_text_size(new_size):
 #                            #
 ##############################
 
-app = App(
-    title='Login', 
-    height=600,
-    width=600
-    )
+app = App(title='Login', height=600, width=600)
 
 
 
@@ -341,189 +460,48 @@ app = App(
 # sign up window
 #---------------------
 
-sign_window = Window(
-    app, 
-    title='Delcan Fitness - Sign Up', 
-    height=600,
-    width=600
-    )
-sign_exit_box = Box(
-    sign_window, 
-    width='fill', 
-    align='top'
-    )
-sign_exit_button = PushButton(
-    sign_exit_box, 
-    text='Back', 
-    align='left', 
-    command=open_login
-    )
+sign_window = Window(app, title='Delcan Fitness - Sign Up', height=600, width=600)
 
-sign_top_image = Picture(
-    sign_exit_box,
-    align='right',
-    image='guizero_login_logo.png'
-    )
+sign_exit_box = Box(sign_window, width='fill', align='top', height=70)
+sign_exit_button = PushButton(sign_exit_box, text='Back', align='left', height=70, width=5, command=open_login)
+sign_top_image = Picture(sign_exit_box, align='right', image='guizero_login_logo.png')
 
-sign_title_box = Box(
-    sign_window, 
-    width='fill'
-    )
-sign_toptxt1 = Text(
-    sign_window, 
-    text='SIGN UP PAGE', 
-    size=20, 
-    underline=True
-    )
+sign_toptxt1 = Text(sign_window, text='SIGN UP PAGE', size=20, underline=True)
 
-sign_box = Box(
-    sign_window, 
-    layout='grid'
-    )
+sign_box = Box(sign_window, layout='grid')
 
-sign_blanktxt1 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,0]
-    )
-sign_txt1 = Text(
-    sign_box, 
-    text='Enter Username', 
-    align='left', 
-    grid=[0,0], 
-    size=15
-    )
-sign_username = TextBox(
-    sign_box, 
-    hide_text=False, 
-    align='left', 
-    grid=[3,0], 
-    width=30
-    )
+sign_blanktxt1 = Text(sign_box, text='          ', grid=[1,0])
+sign_txt1 = Text(sign_box, text='Enter Username', align='left', grid=[0,0], size=15)
+sign_username = TextBox(sign_box, hide_text=False, align='left', grid=[3,0], width=30)
 
-sign_blanktxt2 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,1]
-    )
-sign_txt2 = Text(
-    sign_box, 
-    text='Enter Password', 
-    align='left', 
-    grid=[0,1], 
-    size=15
-    )
-sign_password = TextBox(
-    sign_box, 
-    hide_text=True, 
-    align='left', 
-    grid=[3,1], 
-    width=30
-    )
+sign_blanktxt2 = Text(sign_box, text='          ', grid=[1,1])
+sign_txt2 = Text(sign_box, text='Enter Password', align='left', grid=[0,1], size=15)
+sign_password = TextBox(sign_box, hide_text=True, align='left', grid=[3,1], width=30)
 
-sign_blanktxt3 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,2]
-    )
-sign_txt3 = Text(
-    sign_box, 
-    text='Confirm Password', 
-    align='left', 
-    grid=[0,2], 
-    size=15
-    )
-sign_confirm_password = TextBox(
-    sign_box, 
-    hide_text=True, 
-    align='left', 
-    grid=[3,2], 
-    width=30
-    )
+sign_blanktxt3 = Text(sign_box, text='          ', grid=[1,2])
+sign_txt3 = Text(sign_box, text='Confirm Password', align='left', grid=[0,2], size=15)
+sign_confirm_password = TextBox(sign_box, hide_text=True, align='left', grid=[3,2], width=30)
 
-sign_blanktxt4 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,3]
-    )
-sign_txt4 = Text(
-    sign_box, 
-    text='Email', 
-    align='left', 
-    grid=[0,3], 
-    size=15
-    )
-sign_email = TextBox(
-    sign_box, 
-    hide_text=False, 
-    align='left', 
-    grid=[3,3], 
-    width=30
-    )
+sign_blanktxt4 = Text(sign_box, text='          ', grid=[1,3])
+sign_txt4 = Text(sign_box, text='Email', align='left', grid=[0,3], size=15)
+sign_email = TextBox(sign_box, hide_text=False, align='left', grid=[3,3], width=30)
 
-sign_blanktxt5 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,4]
-    )
-sign_txt5 = Text(
-    sign_box, 
-    text='First Name', 
-    align='left', 
-    grid=[0,4], 
-    size=15
-    )
-sign_firstname = TextBox(
-    sign_box, 
-    hide_text=False, 
-    align='left', 
-    grid=[3,4], 
-    width=30
-    )
+sign_blanktxt5 = Text(sign_box, text='          ', grid=[1,4])
+sign_txt5 = Text(sign_box, text='First Name', align='left', grid=[0,4], size=15)
+sign_firstname = TextBox(sign_box, hide_text=False, align='left', grid=[3,4], width=30)
 
-sign_blanktxt6 = Text(
-    sign_box, 
-    text='          ', 
-    grid=[1,5]
-    )
-sign_txt6 = Text(
-    sign_box, 
-    text='Last Name', 
-    align='left', 
-    grid=[0,5], 
-    size=15
-    )
-sign_lastname = TextBox(
-    sign_box, 
-    hide_text=False, 
-    align='left', 
-    grid=[3,5], 
-    width=30)
+sign_blanktxt6 = Text(sign_box, text='          ', grid=[1,5])
+sign_txt6 = Text(sign_box, text='Last Name', align='left', grid=[0,5], size=15)
+sign_lastname = TextBox(sign_box, hide_text=False, align='left', grid=[3,5], width=30)
 
-sign_spacertxt = Text(
-    sign_window, 
-    text='                    '
-    )
-sign_spacertxt2 = Text(
-    sign_window, 
-    text='                    '
-    )
-sign_txt7 = Text(
-    sign_window, 
-    text='Finished entering your details? Click here to join us!'
-    )
+sign_spacertxt = Text(sign_window, text='                    ')
+sign_tos = CheckBox(sign_window, "By clicking this box I agree to the terms and conditions", command=show_tos)
 
-sign_spacertxt3 = Text(
-    sign_window, 
-    text='                    '
-    )
-sign_join_button = PushButton(
-    sign_window, 
-    text='Join us!', 
-    height=1, 
-    width=8, 
-    command=signup_create_account
-    )
+sign_spacertxt2 = Text(sign_window, text='                    ')
+sign_txt7 = Text(sign_window, text='Finished entering your details? Click here to join us!')
+
+sign_spacertxt3 = Text(sign_window, text='                    ')
+sign_join_button = PushButton(sign_window, text='Join us!', height=1, width=8, command=signup_create_account)
 
 sign_window.hide()
 
@@ -533,125 +511,41 @@ sign_window.hide()
 # login
 #---------------------
 
-login_topbox = Box(
-    app,
-    width='fill',
-    align='top')
+login_topbox = Box(app, width='fill', align='top')
 
-login_spacertxt2 = Text(
-    login_topbox, 
-    text='                    '
-    )
+login_spacertxt2 = Text(login_topbox, text='                    ')
 
-login_toptxt1 = Text(
-    login_topbox, 
-    text= 'Declan Fitness', 
-    size=20, 
-    underline=True
-    )
+login_toptxt1 = Text(login_topbox, text= 'Declan Fitness', size=20, underline=True)
 
-login_top_image = Picture(
-    login_topbox,
-    image='guizero_login_logo.png'
-    )
+login_top_image = Picture(login_topbox, image='guizero_login_logo.png')
 
-login_toptxt2 = Text(
-    app, 
-    text='To login please enter your details and press login', 
-    size=10
-    )
-login_spacertxt3 = Text(
-    app, 
-    text='                    '
-    )
+login_toptxt2 = Text(app, text='To login please enter your details and press login', size=10)
+login_spacertxt3 = Text(app, text='                    ')
 
-login_box = Box(
-    app, 
-    layout='grid'
-    )
+login_box = Box(app, layout='grid')
 
-login_blanktxt1 = Text(
-    login_box, 
-    text='          ', 
-    grid=[1,0]
-    )
-login_txt1 = Text(
-    login_box, 
-    text='Enter Username', 
-    align='left', 
-    grid=[0,0], 
-    size=15
-    )
-login_username = TextBox(
-    login_box, 
-    hide_text=False, 
-    align='left', 
-    grid=[3,0], 
-    width=30
-    )
+login_blanktxt1 = Text(login_box, text='          ', grid=[1,0])
+login_txt1 = Text(login_box, text='Enter Username', align='left', grid=[0,0], size=15)
+login_username = TextBox(login_box, hide_text=False, align='left', grid=[3,0], width=30)
 
-login_blanktxt2 = Text(
-    login_box, 
-    text='          ', 
-    grid=[1,1]
-    )
-login_txt2 = Text(
-    login_box, 
-    text='Enter Password', 
-    align='left', 
-    grid=[0,1], 
-    size=15
-    )
-login_password = TextBox(
-    login_box, 
-    hide_text=True, 
-    align='left', 
-    grid=[3,1], 
-    width=30
-    )
+login_blanktxt2 = Text(login_box, text='          ', grid=[1,1])
+login_txt2 = Text(login_box, text='Enter Password', align='left', grid=[0,1], size=15)
+login_password = TextBox(login_box, hide_text=True, align='left', grid=[3,1], width=30)
 
-login_spacertxt4 = Text(
-    app, 
-    text='                    '
-    )
-login_button = PushButton(
-    app, 
-    text='Login', 
-    height=1, 
-    width=8, 
-    command=login_user
-    )
-login_spacertxt5 = Text(
-app, 
-text='                    '
-)
+login_spacertxt4 = Text(app, text='                    ')
+login_button = PushButton(app, text='Login', height=1, width=8, command=login_user)
+login_spacertxt5 = Text(app, text='                    ')
 
-no_account_txt = Text(
-    app, 
-    text="Don't have an account? Click here!"
-    )
-login_signup = PushButton(
-    app, 
-    text='Sign Up', 
-    height=1, 
-    width=8, 
-    command=open_signup
-    )
+no_account_txt = Text(app, text="Don't have an account? Click here!")
+login_signup = PushButton(app, text='Sign Up', height=1, width=8, command=open_signup)
 
-login_spacertxt6 = Text(
-    app,
-    text='                    '
-    )
-login_forgot_box = Box(
-    app,
-    border=1
-    )
-login_bottomtxt = Text(
-    login_forgot_box, 
-    text='Forgot your password?', 
-    size=12
-    )
+login_spacertxt6 = Text(app, text='                    ')
+login_forgot_box = Box(app,border=1)
+login_bottomtxt = Text(login_forgot_box, text='Forgot your password?', size=12)
 login_bottomtxt.when_clicked = open_forgot
+
+login_spacertxt7 = Text(app, text='                    ')
+login_cookies = CheckBox(app, "By clicking this box I accept the cookies to personalise ads", command=show_cookies)
 
 
 
@@ -661,109 +555,43 @@ login_bottomtxt.when_clicked = open_forgot
 
 default_font = "arial"
 
-review_window = Window(
-    app, 
-    title="Declan Fitness! - Leave your Review!", 
-    height=600,
-    width=600
-    )
-review_exit_box = Box(
-    review_window, 
-    width='fill', 
-    align='top'
-    )
-review_exit_button = PushButton(
-    review_exit_box, 
-    text='Back', 
-    align='left',
-    command=open_login
-    )
+review_window = Window(app, title="Declan Fitness! - Leave your Review!", height=600,width=600)
+review_exit_box = Box(review_window, width='fill', align='top',height=70)
+review_exit_button = PushButton(review_exit_box, text='Back', align='left',height=70,width=5,command=open_login)
 
-review_top_image = Picture(
-    review_exit_box,
-    align='right',
-    image='guizero_login_logo.png'
-    )
+review_top_image = Picture(review_exit_box,align='right',image='guizero_login_logo.png')
 
-review_title_box = Box(
-    review_window, 
-    width='fill'
-    )
-review_toptxt1 = Text(
-    review_window, 
-    text='Please leave your review here!', 
-    size=20, 
-    underline=True
-    )
+review_title_box = Box(review_window, width='fill')
+review_toptxt1 = Text(review_window, text='Please leave your review here!', size=20, underline=True)
 
-review_box = Box(
-    review_window, 
-    layout='grid'
-    )
+review_box = Box(review_window, layout='grid')
 
-review_textbox = TextBox(
-    review_box, 
-    hide_text=False, 
-    multiline=True, 
-    align='left', 
-    grid=[0,0], 
-    width=50, 
-    height=15,
-    )
+review_textbox = TextBox(review_box, hide_text=False, multiline=True, align='left', grid=[0,0], width=50, height=15,)
 review_textbox.font = default_font
 
-review_txt1 = Text(
-    review_window, 
-    text='     Star Rating', 
-    align="left", 
-    size=15
-    )
-review_blanktxt1 = Text(
-    review_window, 
-    text='        ', 
-    align="left"
-    )
+review_txt1 = Text(review_window, text='     Star Rating', align="left", size=15)
+review_blanktxt1 = Text(review_window, text='        ', align="left")
 
 star_count = 5
 # A list is used so that the value can be change inside the review_rating() function
 # The starting rating is 0 because the user hsa not selected a rating yet
 star_rating = [0]
 
-star_box = Box(
-    review_window, 
-    layout="grid", 
-    align="left"
-    )
+star_box = Box(review_window, layout="grid", align="left")
 # List used to store references to the five star Picture objects
 star_images = []
 # Create five star images
 for i in range(star_count):
     # Create an empty star image and place it in the star box
-    pic = Picture(
-        star_box, 
-        image="EmptyStar.png", 
-        grid=[i,0]
-        )
+    pic = Picture(star_box, image="EmptyStar.png", grid=[i,0])
     # When the user clicks the star, call the review_rating() with the appropriate rating
     # i + 1 means the first star represents 1, the second star represents 2, etc
-    pic.when_clicked = partial(
-        review_rating, 
-        i+1
-        )
+    pic.when_clicked = partial(review_rating, i+1)
     # Add the Picture object to the list so that its image can be changed later
     star_images.append(pic)
 
-review_submit_box = Box(
-    review_window, 
-    width='fill', 
-    align='bottom'
-    )
-review_submit_button = PushButton(
-    review_submit_box, 
-    text='Submit', 
-    align='right', 
-    command=submit_review
-    )
+review_submit_box = Box(review_window, width='fill', align='bottom')
+review_submit_button = PushButton(review_submit_box, text='Submit', align='right', command=submit_review)
 
 
 review_window.hide()
@@ -774,107 +602,45 @@ review_window.hide()
 # forgot password page
 #---------------------
 
-forgot_window = Window(
-    app,
-    title="Declan Fitness - Forgotten password",
-    height=270,
-    width=600
-    )
-forgot_exit_box = Box(
-    forgot_window,
-    width="fill",
-    align="top"
-    )
-forgot_exit_button = PushButton(
-    forgot_exit_box,
-    text="Back",
-    align="left",
-    command=open_login)
+forgot_window = Window(app,title="Declan Fitness - Forgotten password", height=400, width=600)
+forgot_exit_box = Box(forgot_window, width="fill", align="top", height=70)
+forgot_exit_button = PushButton(forgot_exit_box, text="Back", align="left", height=70, width=5, command=open_login)
 
-forgot_top_image = Picture(
-    forgot_exit_box,
-    align='right',
-    image='guizero_login_logo.png'
-    )
+forgot_top_image = Picture(forgot_exit_box, align='right', image='guizero_login_logo.png')
 
-forgot_title_box = Box(
-    forgot_window,
-    width="fill"
-    )
-forgot_toptxt1 = Text(
-    forgot_window,
-    text="Enter your details here!",
-    size=20,
-    underline=True
-    )
+forgot_title_box = Box(forgot_window, width="fill")
+forgot_toptxt1 = Text(forgot_window, text="Enter your details here!", size=20, underline=True)
 
-forgot_box = Box(
-    forgot_window,
-    layout="grid"
-    )
+forgot_box = Box(forgot_window,layout="grid")
 
-forgot_spacertxt1 = Text(
-    forgot_box, 
-    text='                    ',
-    grid=[0,0]
-    )
+forgot_spacertxt1 = Text(forgot_box, text='                    ', grid=[0,0])
 
-forgot_blanktxt1 = Text(
-    forgot_box, 
-    text='          ', 
-    grid=[1,1]
-    )
-forgot_username_text = Text(
-    forgot_box, 
-    text='Enter Username', 
-    align='left', 
-    grid=[0,1], 
-    size=15
-    )
-forgot_textbox1 = TextBox(
-    forgot_box,
-    hide_text=False,
-    align="left",
-    grid=[2,1],
-    width=30
-    )
+forgot_blanktxt1 = Text(forgot_box, text='          ', grid=[1,1])
+forgot_username_text = Text(forgot_box, text='Enter Username', align='left', grid=[0,1], size=15)
+forgot_textbox1 = TextBox(forgot_box, hide_text=False, align="left", grid=[2,1], width=30)
 
-forgot_blanktxt2 = Text(
-    forgot_box, 
-    text='          ', 
-    grid=[1,2]
-    )
-forgot_email_text = Text(
-    forgot_box, 
-    text='Enter Email', 
-    align='left', 
-    grid=[0,2], 
-    size=15
-    )
-forgot_textbox2 = TextBox(
-    forgot_box,
-    hide_text=False,
-    align="left",
-    grid=[2,2],
-    width=30
-    )
+forgot_blanktxt2 = Text(forgot_box, text='          ', grid=[1,2])
+forgot_email_text = Text(forgot_box, text='Enter Email', align='left', grid=[0,2], size=15)
+forgot_textbox2 = TextBox(forgot_box, hide_text=False, align="left", grid=[2,2], width=30)
 
-forgot_getpw_box = Box(
-    forgot_window, 
-    width='fill'
-    )
-forgot_spacertxt2 = Text(
-    forgot_getpw_box, 
-    text='                    '
-    )
-forgot_getpw_button = PushButton(
-    forgot_getpw_box, 
-    text='Retrieve Password',
-    command=retrieve_password
-    )
+forgot_spacertxt2 = Text(forgot_box, text='                    ', grid=[1,3])
+
+forgot_blanktxt3 = Text(forgot_box, text='          ', grid=[1,4])
+forgot_newpw_text = Text(forgot_box, text='Enter New Password', align='left', grid=[0,4], size=15)
+forgot_textbox3 = TextBox(forgot_box, hide_text=True, align="left", grid=[2,4], width=30)
+
+forgot_blanktxt4 = Text(forgot_box, text='          ', grid=[1,5])
+forgot_confirm_newpw_text = Text(forgot_box, text='Confirm New Password', align='left', grid=[0,5], size=15)
+forgot_textbox4 = TextBox(forgot_box, hide_text=True, align="left", grid=[2,5], width=30)
+
+forgot_changepw_box = Box(forgot_window, width='fill')
+forgot_spacertxt3 = Text(forgot_changepw_box, text='                    ')
+forgot_changepw_button = PushButton(forgot_changepw_box, text='Change Password', command=change_password)
 
 forgot_textbox1.font = default_font
 forgot_textbox2.font = default_font
+forgot_textbox3.font = default_font
+forgot_textbox4.font = default_font
 
 forgot_window.hide()
 
@@ -886,81 +652,31 @@ forgot_window.hide()
 
 menubar = MenuBar(
    app,
-   toplevel=["Fonts","Text Size","Colour Scheme"],
+   toplevel=["fonts","text size","colour scheme"],
    options=[
        [
-           ["Arial", lambda: change_font("arial")],
-           ["Verdana", lambda: change_font("verdana")],
-           ["Tahoma", lambda: change_font("tahoma")],
-           ["Segoe UI", lambda: change_font("segoe ui")],
-           ["Times", lambda: change_font("times")],
-           ["Georgia", lambda: change_font("georgia")],
-           ["Courier New", lambda: change_font("courier new")],
-           ["Consolas", lambda: change_font("consolas")],
-           ["Comic Sans MS", lambda: change_font("comic sans MS")],
-           ["Impact", lambda: change_font("impact")]
+           ["arial", lambda: change_font("arial")],
+           ["verdana", lambda: change_font("verdana")],
+           ["tahoma", lambda: change_font("tahoma")],
+           ["segoe ui", lambda: change_font("segoe ui")],
+           ["times", lambda: change_font("times")],
+           ["georgia", lambda: change_font("georgia")],
+           ["courier new", lambda: change_font("courier new")],
+           ["consolas", lambda: change_font("consolas")],
+           ["comic sans ms", lambda: change_font("comic sans ms")],
+           ["impact", lambda: change_font("impact")]
        ],
        [
-           ["Small (10)", lambda: change_text_size(10)],
-           ["Medium (14)", lambda: change_text_size(14)],
-           ["Large (18)", lambda: change_text_size(18)]
+           ["small (10)", lambda: change_text_size(10)],
+           ["medium (14)", lambda: change_text_size(14)],
+           ["large (18)", lambda: change_text_size(18)]
        ],
-
        [
-           ["Light Mode", light_mode],
-           ["Dark Mode", dark_mode]
+           ["light mode", light_mode],
+           ["dark mode", dark_mode]
        ]
    ]
 )
-
-
-
-# menubar = MenuBar(
-#    app,
-#    toplevel=["Settings"],
-#    options=[
-#        []
-#    ]
-#    )
-
-# settings_menu = Menu(
-#    menubar.tk,
-#    tearoff=False
-#    )
-
-# fonts_menu = Menu(
-#    settings_menu,
-#    tearoff=False
-#    )
-
-# fonts = [
-#    "Arial",
-#    "Verdana",
-#    "Tahoma",
-#    "Segoe UI",
-#    "Times",
-#    "Georgia",
-#    "Courier New",
-#    "Consolas",
-#    "Comic Sans MS",
-#    "Impact"
-#    ]
-
-# for font in fonts:
-#    fonts_menu.add_command(
-#        label=font,
-#        command=lambda f=font: change_font(f)
-#    )
-
-# settings_menu.add_cascade(
-#    label="Fonts",
-#    menu=fonts_menu
-#    )
-     
-# menubar.tk.entryconfig(
-#    "Settings",
-#    menu=settings_menu
-# )
               
 
 
