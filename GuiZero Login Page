@@ -6,11 +6,14 @@
 ################################################################################################
 #                   CHANGE LOG:
 #                   +--------------------------------------------------------------------------+
-#                   | 10/09/2026    v1.1       DATABASE/LOGIN/SIGNUP CREATED             DN    |
-#                   | 13/09/2026    V1.2       FONT CHANGER CREATED                      DN    |
-#                   | 14/09/2026    V1.3       REVIEW/FORGOT PASSWORD CREATED            DN    |
-#                   | 15/09/2026    V1.4       LOGO/STAR RATING ADDED                    DN    |
-#                   | 16/09/2026    V1.5       DARKMODE/LIGHTMODE SWITCH CREATED         DN    |
+#                   | 10/09/2026    v1       DATABASE/LOGIN/SIGNUP CREATED             DN      |
+#                   | 13/09/2026    V2       FONT CHANGER CREATED                      DN      |
+#                   | 14/09/2026    V3       REVIEW/FORGOT PASSWORD CREATED            DN      |
+#                   | 15/09/2026    V4       LOGO/STAR RATING ADDED                    DN      |
+#                   | 16/09/2026    V5       DARKMODE/LIGHTMODE SWITCH CREATED         DN      |
+#                   | 22/09/2026    V6       TOS & COOKIES POLICY ADDED                DN      |
+#                   | 25/09/2026    V7       ADDED A CHARACTER LIMIT TO THE REVIEW     DN      |
+#                   | 29/09/2026    V8       FIXED TEXT SIZE CHANGER                   DN      |
 #                   +--------------------------------------------------------------------------+
 
 
@@ -30,7 +33,19 @@ import sqlite3  # Imported so program can create and use an SQLite database
 ##############################
 #                            #
 #                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
 ########## BACK END ##########
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
 #                            #
 #                            #
 ##############################
@@ -87,9 +102,6 @@ user_LoggedIn = None    # Stores the UserID of the currently logged in user. (No
 
 
 
-
-
-
 #---------------------
 # sub-routines
 #---------------------
@@ -115,8 +127,12 @@ def execute_sql(database, sql_statement, params=()):
 def login_user():
     # Procedure used to check login details against information stored in database
     global user_LoggedIn # Allows procedure to change global user_LoggedIn variable
+    # Cookies Check
+    if login_cookies.value == 0:
+        error("Error", "You must accept the cookies to personalise ads before logging in.")
+        return
     # Presence Checks
-    if login_username.value == "":
+    elif login_username.value == "":
         error("Error", "You must enter a valid username") 
     elif login_password.value == "":
         error("Error", "You must enter a valid password") 
@@ -146,7 +162,7 @@ def signup_create_account():
     email = sign_email.value
     # Terms & Conditions Check
     if sign_tos.value == 0:
-        error("Error", "You must accept the Terms & Conditions before logging in.")
+        error("Error", "You must accept the Terms & Conditions before signing up.")
         return
     # Presence Check
     # Checks that none of the fields are empty
@@ -208,18 +224,23 @@ def submit_review():
     if additionalinfo == "":
         error("Error", "Please write a review.") # Checks if review has anything written in it
     elif stars == 0:
-        error("Error", "Please select a star rating.")
+        error("Error", "Please select a star rating.")  # Checks if the user has added a star rating
+    elif len(additionalinfo) > 750:
+        error("Error", "Review exceeds the character limit.")   # Checks if review is greater than the character limit
     else:
         query = "INSERT INTO Review (review_date, review_additionalinfo, review_stars, UserID) VALUES (?, ?, ?, ?)"
         execute_sql(database_file, query, (date, additionalinfo, stars, user_LoggedIn))
         info("Success", "Review submitted.")
+        open_login()
 
 
 def change_font(font):
+    # Changes the font of the app to comply with WCAG
     app.font = font
 
 
 def open_signup():
+    # Opens the sign up page
     print("OPENED SIGN UP PAGE")
     app.hide()
     sign_username.value = ""
@@ -232,6 +253,7 @@ def open_signup():
 
 
 def open_login():
+    # Opens the login page
     print("OPENED LOGIN PAGE")
     forgot_window.hide()
     sign_window.hide()
@@ -242,12 +264,14 @@ def open_login():
 
 
 def open_forgot():
+    # Opens the forgot password page
     print("OPENED FORGOTTEN PASSWORD PAGE")
     app.hide()
     forgot_window.show()
  
 
 def open_review():
+    # Opens the review page
     global user_LoggedIn
     if user_LoggedIn is None:
         error("Error", "You must log in first to leave a review.")
@@ -269,6 +293,7 @@ def review_rating(rating):
 
 
 def change_password():
+    # Allows the user to change password
     username = forgot_textbox1.value
     email = forgot_textbox2.value
     new_password = forgot_textbox3.value
@@ -299,6 +324,7 @@ def change_password():
 
 
 def dark_mode():
+    # Changes the colour scheme of the app to dark mode to comply with WCAG
     # Windows
     app.bg = '#454545'
     sign_window.bg = '#454545'
@@ -320,6 +346,7 @@ def dark_mode():
 
 
 def light_mode():
+    # Changes the colour scheme of the app to light mode to comply with WCAG
     # Windows
     app.bg = '#c7c7c7'
     sign_window.bg = '#c7c7c7'
@@ -340,15 +367,89 @@ def light_mode():
     login_bottomtxt.text_color = '#1f8ced'
 
 
-def change_text_size(new_size):
+def colourblind_mode():
+    # Changes the colour scheme of the app to cater to colour blind people to comply with WCAG
+    # This mode is suitable for red-green (no green), red-green (no red), reduced sensitivity to green and reducted sensitivity to red types of colour blindness
     # Windows
-    app.text_size = new_size
-    sign_window.text_size = new_size
-    review_window.text_size = new_size
-    forgot_window.text_size = new_size
+    app.bg = '#17202A'
+    sign_window.bg = '#17202A'
+    review_window.bg = '#17202A'
+    forgot_window.bg = '#17202A'
+
+    # Boxes
+    login_forgot_box.bg = '#263746'
+    review_textbox.bg = '#263746'
+
+    # Text
+    app.text_color = '#FFFFFF'
+    sign_window.text_color = '#FFFFFF'
+    review_window.text_color = '#FFFFFF'
+    forgot_window.text_color = '#FFFFFF'
+
+    # Special text
+    login_bottomtxt.text_color = '#56D6C9'
+
+
+def change_text_size(size):
+    # Changes text sizes to comply with WCAG
+    
+    if size == "small":
+        heading_size = 20
+        normal_size = 10
+        label_size = 12
+        small_size = 8
+
+    elif size == "medium":
+        heading_size = 24
+        normal_size = 14
+        label_size = 16
+        small_size = 10
+
+    elif size == "large":
+        heading_size = 28
+        normal_size = 18
+        label_size = 20
+        small_size = 12
+
+    # Login page
+    login_toptxt1.size = heading_size
+    login_toptxt2.size = normal_size
+
+    login_txt1.size = label_size
+    login_txt2.size = label_size
+
+    no_account_txt.size = normal_size
+    login_bottomtxt.size = label_size
+
+    # Sign-up page
+    sign_toptxt1.size = heading_size
+
+    sign_txt1.size = label_size
+    sign_txt2.size = label_size
+    sign_txt3.size = label_size
+    sign_txt4.size = label_size
+    sign_txt5.size = label_size
+    sign_txt6.size = label_size
+
+    sign_txt7.size = normal_size
+
+    # Review page
+    review_toptxt1.size = heading_size
+    review_toptxt2.size = small_size
+    review_txt1.size = label_size
+
+    # Forgot password page
+    forgot_toptxt1.size = heading_size
+
+    forgot_username_text.size = label_size
+    forgot_email_text.size = label_size
+    forgot_newpw_text.size = label_size
+    forgot_confirm_newpw_text.size = label_size
+
 
 
 def show_tos():
+    # Shows the Terms & Conditions to the user when they click the checkbox to comply with GDPR
     if sign_tos.value == 1:
         tos_show = app.yesno("Declan Fitness - Terms & Conditions",
 """
@@ -390,6 +491,7 @@ We may update these Terms from time to time. Continued use of Declan Fitness aft
 
 
 def show_cookies():
+    # Shows the cookies of the app when they click the checkbox to comply with GDPR
     if login_cookies.value == 1:
         cookies_show = app.yesno("Declan Fitness - Cookies",
 """
@@ -447,7 +549,19 @@ The latest version will always display the date it was last updated.
 ##############################
 #                            #
 #                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
 ######### FRONT END ##########
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
+#                            #
 #                            #
 #                            #
 ##############################
@@ -457,7 +571,7 @@ app = App(title='Login', height=600, width=600)
 
 
 #---------------------
-# sign up window
+# sign up page
 #---------------------
 
 sign_window = Window(app, title='Delcan Fitness - Sign Up', height=600, width=600)
@@ -508,7 +622,7 @@ sign_window.hide()
 
 
 #---------------------
-# login
+# login page
 #---------------------
 
 login_topbox = Box(app, width='fill', align='top')
@@ -564,6 +678,8 @@ review_top_image = Picture(review_exit_box,align='right',image='guizero_login_lo
 review_title_box = Box(review_window, width='fill')
 review_toptxt1 = Text(review_window, text='Please leave your review here!', size=20, underline=True)
 
+review_toptxt2 = Text(review_window, text='Character limit: 750', size=8, bold=True)
+
 review_box = Box(review_window, layout='grid')
 
 review_textbox = TextBox(review_box, hide_text=False, multiline=True, align='left', grid=[0,0], width=50, height=15,)
@@ -573,7 +689,7 @@ review_txt1 = Text(review_window, text='     Star Rating', align="left", size=15
 review_blanktxt1 = Text(review_window, text='        ', align="left")
 
 star_count = 5
-# A list is used so that the value can be change inside the review_rating() function
+# A list is used so that the value can be changed inside the review_rating() function
 # The starting rating is 0 because the user hsa not selected a rating yet
 star_rating = [0]
 
@@ -647,7 +763,7 @@ forgot_window.hide()
 
 
 #---------------------
-# settings
+# menubar settings
 #---------------------
 
 menubar = MenuBar(
@@ -667,13 +783,14 @@ menubar = MenuBar(
            ["impact", lambda: change_font("impact")]
        ],
        [
-           ["small (10)", lambda: change_text_size(10)],
-           ["medium (14)", lambda: change_text_size(14)],
-           ["large (18)", lambda: change_text_size(18)]
+           ["small)", lambda: change_text_size("small")],
+           ["medium", lambda: change_text_size("medium")],
+           ["large", lambda: change_text_size("large")]
        ],
        [
            ["light mode", light_mode],
-           ["dark mode", dark_mode]
+           ["dark mode", dark_mode],
+           ["colour-blind mode", colourblind_mode]
        ]
    ]
 )
@@ -685,4 +802,5 @@ menubar = MenuBar(
 #---------------------
 
 light_mode()
+change_text_size("small")
 app.display()
